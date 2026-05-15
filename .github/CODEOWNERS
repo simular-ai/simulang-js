@@ -1,0 +1,5 @@
+# CODEOWNERS for simulang-js
+# These owners will be automatically requested for review on PRs
+
+# Default owners for everything in the repo
+* @robin-simular

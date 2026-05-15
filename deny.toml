@@ -1,0 +1,35 @@
+[graph]
+exclude = ["simulang-rs"]
+
+[licenses]
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "BSL-1.0",
+  "ISC",
+  "0BSD",
+  "Zlib",
+  "Unlicense",
+  "CC0-1.0",
+  "Unicode-DFS-2016",
+  "Unicode-3.0",
+  "MPL-2.0",                        # Weak (file-level) copyleft; remove if legal policy disallows.
+  "OFL-1.1",                        # SIL Open Font License — bundled fonts in eframe/egui.
+  "Ubuntu-font-1.0",                # Bundled Ubuntu fonts in eframe/egui.
+]
+private = { ignore = true } # Workspace crates are publish = false; don't license-check our own crates.
+
+[advisories]
+yanked = "deny"
+
+[bans]
+allow-wildcard-paths = true   # Permit path/git deps in private crates.
+wildcards            = "deny"
+
+[sources]
+allow-git        = ["ssh://git@github.com/simular-ai/simulang-rs-internal"]
+unknown-git      = "deny"
+unknown-registry = "deny"

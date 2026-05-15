@@ -1,0 +1,47 @@
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'daily'
+    cooldown:
+      default-days: 7
+    labels:
+      - 'dependencies'
+    commit-message:
+      prefix: 'chore'
+    versioning-strategy: 'increase'
+    groups:
+      napi-rs:
+        patterns:
+          - '@napi-rs/*'
+          - '@emnapi/*'
+          - 'napi*'
+      linter:
+        patterns:
+          - 'oxlint'
+          - 'prettier'
+          - 'typescript'
+          - '@types/node'
+
+  - package-ecosystem: 'cargo'
+    directory: '/'
+    schedule:
+      interval: 'daily'
+    cooldown:
+      default-days: 7
+    labels:
+      - 'dependencies'
+    commit-message:
+      prefix: 'chore'
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'daily'
+    cooldown:
+      default-days: 7
+    labels:
+      - 'dependencies'
+    commit-message:
+      prefix: 'chore'

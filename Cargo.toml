@@ -1,0 +1,34 @@
+
+[package]
+authors = ["Robin Grell <robin@simular.ai>"]
+edition = "2024"
+license = "MIT"
+name    = "simulang_js"
+publish = false
+version = "0.0.3"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+napi        = "3.0.0"
+napi-derive = "3.0.0"
+
+env_filter = "1.0"
+log = "0.4"
+parking_lot = "0.12"
+simulang-rs = { git = "ssh://git@github.com/simular-ai/simulang-rs-internal", tag = "v0.3.10", features = [
+  "platform-specific",
+] }
+url = "2.5.4"
+
+[build-dependencies]
+napi-build = "2"
+
+[profile.release]
+codegen-units = 1
+lto           = "fat"
+strip         = true
+# Keep default panic = "unwind"; napi-rs uses catch_unwind to convert
+# Rust panics into JavaScript errors. Switching to "abort" would crash
+# the Node process on any panic instead of surfacing a JS exception.

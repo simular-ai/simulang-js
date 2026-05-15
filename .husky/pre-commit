@@ -1,0 +1,3 @@
+command -v fnm >/dev/null && eval "$(fnm env --shell bash)"
+command -v nvm >/dev/null && . "$NVM_DIR/nvm.sh"
+npx lint-staged

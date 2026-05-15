@@ -1,0 +1,278 @@
+use napi::Error;
+use napi_derive::napi;
+use simulang_rs::AXNode;
+use simulang_rs::traits::{AXNodeActions, AXNodeSynthetic, AXNodeTrait};
+
+use crate::aria_role::AriaRole;
+use crate::ax_tree::{BoundingBox, TraversalOrder};
+
+/// A node in the platform accessibility tree. Thin binding for
+/// `simulang_rs::AXNode` (macOS `AXUIElement` / Windows UIA element /
+/// Linux AT-SPI accessible).
+///
+/// Construct via the static factories or via tree-walking methods on
+/// another node / `Instance` / `Window` (`children`, `find`,
+/// `scoredSearch`). Properties are resolved from the underlying
+/// accessibility framework on each access; the node itself is just a
+/// handle.
+#[napi]
+pub struct AccessibilityNode {
+  pub(crate) inner: AXNode,
+}
+
+impl AccessibilityNode {
+  pub(crate) const fn new(inner: AXNode) -> Self {
+    Self { inner }
+  }
+
+  pub(crate) fn from_nodes(nodes: Vec<AXNode>) -> Vec<Self> {
+    nodes.into_iter().map(Self::new).collect()
+  }
+}
+
+#[napi]
+impl AccessibilityNode {
+  // ---------------------------------------------------------------
+  // factories
+  // ---------------------------------------------------------------
+
+  #[napi(factory)]
+  /// Root node of the currently focused application's accessibility tree.
+  pub fn from_focused_application() -> napi::Result<Self> {
+    AXNode::from_focused_application()
+      .map(Self::new)
+      .map_err(Error::from_reason)
+  }
+
+  #[napi(factory)]
+  /// Root node of the application identified by `pid`.
+  #[allow(clippy::cast_possible_wrap)]
+  pub fn from_pid(pid: u32) -> napi::Result<Self> {
+    AXNode::from_pid(pid as i32)
+      .map(Self::new)
+      .map_err(Error::from_reason)
+  }
+
+  // ---------------------------------------------------------------
+  // properties
+  // ---------------------------------------------------------------
+
+  #[napi(getter)]
+  #[must_use]
+  /// Cross-platform ARIA role.
+  pub fn role(&self) -> AriaRole {
+    self.inner.aria_role().into()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  /// Accessible name (title / label).
+  pub fn name(&self) -> String {
+    self.inner.title()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  /// Platform class name (Windows UIA `ClassName` / macOS subrole).
+  pub fn class_name(&self) -> String {
+    self.inner.class_name()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  /// Numeric control type (`UIA_ControlTypeIds` on Windows, `0` on macOS).
+  pub fn control_type(&self) -> i32 {
+    self.inner.control_type_id()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  /// Localized control type string.
+  pub fn localized_control_type(&self) -> String {
+    self.inner.localized_control_type()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  /// Short description (`AXDescription` / UIA `Name`-adjacent fields).
+  pub fn description(&self) -> String {
+    self.inner.description_text()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  /// Synthetic, query-friendly description used by `scoredSearch` (combines
+  /// the node's role, label, value, and a small amount of ancestor context).
+  pub fn overall_description(&self) -> String {
+    self.inner.summary_with_context()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  /// Help text / tooltip.
+  pub fn help_text(&self) -> String {
+    self.inner.help_text()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  /// Current text value (textbox content, slider value as string, …).
+  pub fn value(&self) -> String {
+    self.inner.value()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  /// UIA `AutomationId` (Windows). Empty on macOS / Linux.
+  pub fn automation_id(&self) -> String {
+    self.inner.automation_id()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  /// Whether the node accepts user input.
+  pub fn is_enabled(&self) -> bool {
+    self.inner.is_enabled()
+  }
+
+  #[napi]
+  /// Live bounding box of the element in global physical pixels.
+  /// `right` and `bottom` are exclusive (Playwright / DOM convention).
+  pub fn bounding_box(&self) -> napi::Result<BoundingBox> {
+    self
+      .inner
+      .bounding_box()
+      .map(BoundingBox::from)
+      .map_err(Error::from_reason)
+  }
+
+  // ---------------------------------------------------------------
+  // tree navigation
+  // ---------------------------------------------------------------
+
+  #[napi]
+  #[must_use]
+  /// Direct child nodes. Returns an empty array if the subtree has been
+  /// torn down or the children attribute is unreadable (matching
+  /// simulang-rs's convention of treating walk failures as "no children").
+  pub fn children(&self) -> Vec<AccessibilityNode> {
+    Self::from_nodes(self.inner.children().unwrap_or_default())
+  }
+
+  // ---------------------------------------------------------------
+  // snapshot / introspection
+  // ---------------------------------------------------------------
+
+  #[napi]
+  #[must_use]
+  /// Render this node's accessibility subtree as an indented
+  /// Playwright-style aria snapshot string.
+  ///
+  /// One line per node, two spaces of indentation per depth level, in
+  /// pre-order DFS. Roles are emitted raw (`AXWindow` on macOS,
+  /// `UIA.ControlType.*` on Windows), with title and value appended when
+  /// non-empty.
+  pub fn snapshot(&self) -> String {
+    self.inner.snapshot()
+  }
+
+  #[napi]
+  #[must_use]
+  /// Human-readable names of the actions this node currently supports
+  /// (e.g. `"activate"`, `"toggle"`, `"scroll_into_view"`).
+  pub fn supported_actions(&self) -> Vec<String> {
+    self.inner.supported_action_names()
+  }
+
+  // ---------------------------------------------------------------
+  // search
+  // ---------------------------------------------------------------
+
+  #[napi]
+  /// Search this subtree by *concept text*, using bag-of-words
+  /// paired-Jaccard scoring against each node's `overallDescription`
+  /// (`simulang_rs::AXNodeSynthetic::summary_with_context`).
+  ///
+  /// Returns every node whose score equals the maximum found and exceeds
+  /// `threshold` — same semantics as `simulang_rs::scored_search` with
+  /// `BowJaccard::score(...).primary` as the scorer and a permissive
+  /// filter.
+  ///
+  /// - `order`               – `TraversalOrder.DepthFirst` or
+  ///                           `TraversalOrder.BreadthFirst`
+  /// - `max_nodes`           – upper bound on nodes visited (uses `.take()`
+  ///                           over the walk)
+  /// - `collapse_structural` – hoist empty structural wrappers out of the
+  ///                           walk before scoring
+  /// - `query`               – natural-language concept Jaccard-compared
+  ///                           against each node's `overallDescription`
+  /// - `threshold`           – minimum score to keep a node
+  #[must_use]
+  #[allow(clippy::needless_pass_by_value)]
+  pub fn scored_search(
+    &self,
+    order: TraversalOrder,
+    max_nodes: u32,
+    collapse_structural: bool,
+    query: String,
+    threshold: f64,
+  ) -> Vec<AccessibilityNode> {
+    let matches = self.inner.scored_search(
+      order.into(),
+      max_nodes as usize,
+      collapse_structural,
+      |_| true,
+      |node| simulang_rs::BowJaccard::score(&node.summary_with_context(), &query).primary,
+      threshold,
+    );
+    Self::from_nodes(matches)
+  }
+
+  // ---------------------------------------------------------------
+  // actions (proxy to `AXNodeActions`)
+  // ---------------------------------------------------------------
+
+  #[napi]
+  /// Invoke / click the element (button, link, menu item).
+  pub fn activate(&self) -> napi::Result<()> {
+    self.inner.activate().map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Set the text value of the element (textbox, combobox, …).
+  #[allow(clippy::needless_pass_by_value)]
+  pub fn set_value(&self, value: String) -> napi::Result<()> {
+    self.inner.set_value(&value).map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Toggle a checkbox or switch.
+  pub fn toggle(&self) -> napi::Result<()> {
+    self.inner.toggle().map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Select a tab, radio button, or list item.
+  pub fn select(&self) -> napi::Result<()> {
+    self.inner.select().map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Expand or collapse a dropdown or tree item.
+  pub fn expand_collapse(&self) -> napi::Result<()> {
+    self.inner.expand_collapse().map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Scroll the element into view.
+  pub fn scroll_into_view(&self) -> napi::Result<()> {
+    self.inner.scroll_into_view().map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Move keyboard focus to this element (brings its window to the
+  /// foreground as a side effect on most platforms).
+  pub fn focus(&self) -> napi::Result<()> {
+    self.inner.set_focus().map_err(Error::from_reason)
+  }
+}

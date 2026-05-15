@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "rootDir": ".",
+    "paths": {
+      "@simular-ai/simulang-js": ["../index.d.ts"]
+    }
+  },
+  "include": ["**/*.mjs"],
+  "exclude": ["node_modules", "log-window.mjs"]
+}

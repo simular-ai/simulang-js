@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "strict": true,
+    "types": ["node"],
+    "moduleResolution": "nodenext",
+    "module": "nodenext",
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["."],
+  "exclude": ["node_modules", "benchmark", "__test__", "bin", "examples", "vitest.config.ts"]
+}

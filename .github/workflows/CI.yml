@@ -1,0 +1,317 @@
+name: CI
+
+env:
+  DEBUG: napi:*
+  APP_NAME: simulang-js
+  MACOSX_DEPLOYMENT_TARGET: '10.13'
+  CARGO_INCREMENTAL: '1'
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - '*'
+    paths-ignore:
+      - LICENSE
+      - '**/*.gitignore'
+      - .editorconfig
+  pull_request: null
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deny:
+    name: cargo-deny
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        env:
+          GIT_CONFIG_GLOBAL: ${{ runner.temp }}/.gitconfig-blank # Create a blank gitconfig file in the temp directory. Ensures local gitconfig is not used.
+      - name: Fetch github.com SSH host keys
+        id: keyscan
+        shell: bash
+        run: |
+          {
+            echo 'known-hosts<<EOF'
+            ssh-keyscan github.com
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+      - uses: EmbarkStudios/cargo-deny-action@91bf2b620e09e18d6eb78b92e7861937469acedb # v2.0.17
+        with:
+          ssh-key: ${{ secrets.SIMULIB_RS_SSH_KEY }}
+          ssh-known-hosts: ${{ steps.keyscan.outputs.known-hosts }}
+          use-git-cli: 'true'
+
+  # On tag pushes we build every target so the publish job has full platform coverage.
+  # On every other run we only build the two primary targets to save CI time.
+  targets:
+    name: Pick build targets
+    runs-on: ubuntu-latest
+    outputs:
+      settings: ${{ steps.pick.outputs.settings }}
+    steps:
+      - id: pick
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            cat <<'EOF' >> "$GITHUB_OUTPUT"
+          settings<<JSON
+          [
+            {"host": "windows-latest",   "target": "x86_64-pc-windows-msvc"},
+            {"host": "windows-11-arm",   "target": "aarch64-pc-windows-msvc"},
+            {"host": "macos-latest",     "target": "aarch64-apple-darwin"},
+            {"host": "macos-15-intel",   "target": "x86_64-apple-darwin"},
+            {"host": "ubuntu-latest",    "target": "x86_64-unknown-linux-gnu"},
+            {"host": "ubuntu-24.04-arm", "target": "aarch64-unknown-linux-gnu"}
+          ]
+          JSON
+          EOF
+          else
+            cat <<'EOF' >> "$GITHUB_OUTPUT"
+          settings<<JSON
+          [
+            {"host": "windows-latest", "target": "x86_64-pc-windows-msvc"},
+            {"host": "macos-latest",   "target": "aarch64-apple-darwin"},
+            {"host": "ubuntu-latest",  "target": "x86_64-unknown-linux-gnu"}
+          ]
+          JSON
+          EOF
+          fi
+
+  build:
+    name: Build ${{ matrix.settings.target }}
+    needs: targets
+    runs-on: ${{ matrix.settings.host }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      CARGO_NET_GIT_FETCH_WITH_CLI: true
+    strategy:
+      fail-fast: false
+      matrix:
+        settings: ${{ fromJSON(needs.targets.outputs.settings) }}
+
+    steps:
+      # Setup
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        env:
+          GIT_CONFIG_GLOBAL: ${{ runner.temp }}/.gitconfig-blank # Create a blank gitconfig file in the temp directory. Ensures local gitconfig is not used.
+
+      - name: Setup node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          cache: npm
+      - name: Configure SSH for private deps (simulang-rs)
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.SIMULIB_RS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          printf "Host github.com\n  IdentityFile ~/.ssh/id_ed25519\n  IdentitiesOnly yes\n" >> ~/.ssh/config
+        shell: bash
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        shell: bash
+        # Native deps pulled in transitively through simulang-rs:
+        #   libasound2-dev    -> cpal / rodio (ALSA)
+        #   libxdo-dev        -> enigo (xdotool)
+        #   libxkbcommon-dev  -> enigo (keymap handling)
+        #   libxi-dev         -> X11 input extension (enigo)
+        #   libxtst-dev       -> X11 test extension (enigo)
+        # Test-time dep:
+        #   xvfb              -> headless X server for clipboard/screen/screenshot tests
+        run: sudo apt-get install -y libasound2-dev libxdo-dev libxkbcommon-dev libxi-dev libxtst-dev xvfb
+      - name: Cache cargo
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ~/.napi-rs
+            .cargo-cache
+            target/
+          key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
+      - name: Install
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master on 2026-03-27
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+      - name: Install dependencies
+        run: npm ci
+
+      # Lint
+      - name: Oxlint
+        run: npm run lint -- --deny-warnings
+      - name: Cargo fmt
+        run: cargo fmt -- --check
+      - name: Clippy
+        run: cargo clippy
+
+      # Build
+      - name: Build (path-remapped)
+        shell: bash
+        run: |
+          # Scrub absolute paths from release binaries so file!() locations
+          # don't leak runner/workspace filesystem details.
+          remap() {
+            [[ "$RUNNER_OS" == "Windows" ]] && cygpath -w "$1" || printf '%s' "$1"
+          }
+          CARGO_HOME_PATH="$(remap "${CARGO_HOME:-$HOME/.cargo}")"
+          WORKSPACE_PATH="$(remap "$GITHUB_WORKSPACE")"
+          export RUSTFLAGS="${RUSTFLAGS:+$RUSTFLAGS }--remap-path-prefix=${CARGO_HOME_PATH}=/cargo --remap-path-prefix=${WORKSPACE_PATH}=/workspace"
+          npm run build
+
+      - name: Strip release symbols (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          # Belt-and-suspenders: Cargo's `strip = true` is supposed to
+          # remove non-global symbols but has historically left them in
+          # place for napi cdylib builds.
+          shopt -s nullglob
+          for f in "${APP_NAME}".*.node; do
+            echo "Stripping $f"
+            strip -x "$f"
+          done
+
+      # Typecheck
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Test
+      - name: Test bindings
+        shell: bash
+        run: |
+          # Linux runners are headless, but clipboard/screen/screenshot tests
+          # need an X server. Wrap with xvfb-run so $DISPLAY is set and the X11
+          # backends in arboard / xcap can connect.
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            xvfb-run --auto-servernum --server-args='-screen 0 1280x1024x24' npm test
+          else
+            npm test
+          fi
+
+      # Upload Artifacts (only needed for publish, which runs on tags)
+      - name: Upload artifacts
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bindings-${{ matrix.settings.target }}
+          path: |
+            ${{ env.APP_NAME }}.*.node
+            ${{ env.APP_NAME }}.*.wasm
+          if-no-files-found: error
+
+      # Documentation - generate the TypeDoc HTML site from the freshly
+      # rebuilt index.d.ts and upload it as a Pages artifact
+      - name: Generate docs
+        if: matrix.settings.target == 'x86_64-unknown-linux-gnu'
+        run: npm run docs
+      - name: Upload Pages artifact
+        if: matrix.settings.target == 'x86_64-unknown-linux-gnu'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: docs
+
+  # Deploys the Pages artifact uploaded by the Linux x86_64 build above.
+  deploy-docs:
+    name: Deploy docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    needs:
+      - build
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        env:
+          GIT_CONFIG_GLOBAL: ${{ runner.temp }}/.gitconfig-blank # Create a blank gitconfig file in the temp directory. Ensures local gitconfig is not used.
+      - name: Setup node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: create npm dirs
+        run: npx napi create-npm-dirs
+      - name: Download all artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: artifacts
+      - name: Move artifacts
+        run: npm run artifacts
+      - name: List packages
+        run: ls -R ./npm
+        shell: bash
+      - name: Publish
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          TAG_VERSION="${TAG_NAME#v}"
+          if echo "$TAG_VERSION" | grep -Eq "^[0-9]+\.[0-9]+\.[0-9]+$"; then
+            DIST_TAG="latest"
+          elif echo "$TAG_VERSION" | grep -Eq "^[0-9]+\.[0-9]+\.[0-9]+-.+"; then
+            DIST_TAG="next"
+          else
+            echo "Not a release, skipping publish"
+            exit 0
+          fi
+
+          # Write the npmjs auth token to ~/.npmrc so `npm publish` (and napi's
+          # child publishes for per-platform packages) pick it up.
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+
+          NAPI_PREPUBLISH_FLAGS="--no-gh-release" \
+            npm publish --access public --tag "$DIST_TAG"
+
+      # Mintlify: generate MDX docs from the just-published index.d.ts and
+      # open a PR on simular-ai/docs that archives them under
+      # simulang-js/api/vX.Y.Z/ and refreshes the simulang-js/api/latest/ alias.
+      - name: Generate Mintlify docs
+        run: npm run docs:mintlify
+
+      - name: Check out simular-ai/docs
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: simular-ai/docs
+          token: ${{ secrets.DOCS_REPO_TOKEN }}
+          path: docs-repo
+          ref: main
+
+      - name: Sync API docs to Mintlify
+        env:
+          GH_TOKEN: ${{ secrets.DOCS_REPO_TOKEN }}
+        run: node scripts/sync-mintlify.mjs
