@@ -43,7 +43,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - uses: EmbarkStudios/cargo-deny-action@91bf2b620e09e18d6eb78b92e7861937469acedb # v2.0.17
         with:
-          ssh-key: ${{ secrets.SIMULIB_RS_SSH_KEY }}
+          ssh-key: ${{ secrets.SIMULANG_RS_SSH_KEY }}
           ssh-known-hosts: ${{ steps.keyscan.outputs.known-hosts }}
           use-git-cli: 'true'
 
@@ -112,7 +112,7 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          echo "${{ secrets.SIMULIB_RS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          echo "${{ secrets.SIMULANG_RS_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan github.com >> ~/.ssh/known_hosts
           printf "Host github.com\n  IdentityFile ~/.ssh/id_ed25519\n  IdentitiesOnly yes\n" >> ~/.ssh/config
