@@ -17,7 +17,7 @@ napi-derive = "3.0.0"
 env_filter = "1.0"
 log = "0.4"
 parking_lot = "0.12"
-simulang-rs = { git = "ssh://git@github.com/simular-ai/simulang-rs-internal", tag = "v0.3.10", features = [
+simulang-rs = { git = "ssh://git@github.com/simular-ai/simulang-rs-internal", tag = "v0.3.11", features = [
   "platform-specific",
 ] }
 url = "2.5.4"

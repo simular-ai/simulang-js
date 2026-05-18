@@ -583,7 +583,7 @@ checksum = "66b7e2430c6dff6a955451e2cfc438f09cea1965a9d6f87f7e3b90decc014099"
 [[package]]
 name = "enigo"
 version = "0.6.1"
-source = "git+ssh://git@github.com/simular-ai/simulang-rs-internal?tag=v0.3.10#c65ded84053ed417f17075a8cca0f7726d184aac"
+source = "git+ssh://git@github.com/simular-ai/simulang-rs-internal?tag=v0.3.11#8fb41509b271df80862141250bcb09a47de26c46"
 dependencies = [
  "core-foundation",
  "core-graphics",
@@ -2518,7 +2518,7 @@ checksum = "703d5c7ef118737c72f1af64ad2f6f8c5e1921f818cdcb97b8fe6fc69bf66214"
 [[package]]
 name = "simulang-rs"
 version = "0.1.3-rc1"
-source = "git+ssh://git@github.com/simular-ai/simulang-rs-internal?tag=v0.3.10#c65ded84053ed417f17075a8cca0f7726d184aac"
+source = "git+ssh://git@github.com/simular-ai/simulang-rs-internal?tag=v0.3.11#8fb41509b271df80862141250bcb09a47de26c46"
 dependencies = [
  "arboard",
  "atspi",
