@@ -11,7 +11,7 @@ version = "0.0.3"
 crate-type = ["cdylib"]
 
 [dependencies]
-napi        = "3.0.0"
+napi        = "3.9.0"
 napi-derive = "3.0.0"
 
 env_filter = "1.0"
