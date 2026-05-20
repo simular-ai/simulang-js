@@ -12,7 +12,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 napi        = "3.0.0"
-napi-derive = "3.0.0"
+napi-derive = "3.5.6"
 
 env_filter = "1.0"
 log = "0.4"
