@@ -41,7 +41,7 @@ jobs:
             ssh-keyscan github.com
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
-      - uses: EmbarkStudios/cargo-deny-action@91bf2b620e09e18d6eb78b92e7861937469acedb # v2.0.17
+      - uses: EmbarkStudios/cargo-deny-action@a531616d8ce3b9177443e48a1159bc945a099823 # v2.0.19
         with:
           ssh-key: ${{ secrets.SIMULANG_RS_SSH_KEY }}
           ssh-known-hosts: ${{ steps.keyscan.outputs.known-hosts }}
