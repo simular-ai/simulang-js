@@ -5,6 +5,7 @@ use simulang_rs::traits::{AXNodeSynthetic, InstanceTrait};
 
 use crate::accessibility_node::AccessibilityNode;
 use crate::ax_tree::TraversalOrder;
+use crate::window::Window;
 
 #[napi]
 /// Represents an opened application instance.
@@ -47,6 +48,18 @@ impl Instance {
   }
 
   #[napi]
+  #[must_use]
+  /// Returns all visible top-level windows belonging to this instance.
+  pub fn windows(&self) -> Vec<Window> {
+    self
+      .inner
+      .windows()
+      .into_iter()
+      .filter_map(|w| Window::try_from(w).ok())
+      .collect()
+  }
+
+  #[napi]
   #[doc(alias = "page_content")]
   #[doc(alias = "application_content")]
   pub fn content(&self) -> napi::Result<String> {
@@ -81,6 +94,27 @@ impl Instance {
       .inner
       .disable_accessibility()
       .map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Request the application to exit gracefully. Returns when the request has
+  /// been dispatched, not when the process has actually terminated; poll
+  /// [`Self::is_running`] if you need to wait.
+  pub fn close(&self) -> napi::Result<()> {
+    self.inner.close().map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Force-terminate immediately. The application gets no chance to save state
+  /// or run cleanup handlers.
+  pub fn kill(&self) -> napi::Result<()> {
+    self.inner.kill().map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// `true` if the underlying process is still running. Cheap, non-blocking.
+  pub fn is_running(&self) -> napi::Result<bool> {
+    self.inner.is_running().map_err(Error::from_reason)
   }
 
   #[napi]

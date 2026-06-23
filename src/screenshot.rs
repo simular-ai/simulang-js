@@ -17,8 +17,9 @@ pub struct Screenshot {
 }
 
 #[napi]
-/// Describes how `(x, y)` coordinates passed to
-/// `Screenshot.toGlobalPhysicalPixels` should be interpreted.
+/// How a screenshot-relative `(x, y)` coordinate is expressed: as absolute
+/// screenshot-image pixels or normalized to a fixed range. Construct one with
+/// [`ScreenshotCoordinateType.absolute`] or [`ScreenshotCoordinateType.normalized`].
 pub struct ScreenshotCoordinateType {
   normalized_range: Option<u32>,
 }
@@ -64,10 +65,38 @@ impl Screenshot {
   /// Draws a cross-hair grid on the image.
   ///
   /// Grid squares have the specified `width` and `height`.
-  pub fn add_grid(&mut self, width: u16, height: u16) -> napi::Result<()> {
+  pub fn draw_grid(&mut self, width: u16, height: u16) -> napi::Result<()> {
     self
       .inner
-      .add_grid(width, height)
+      .draw_grid(width, height)
+      .map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Paints a filled disc on the image. Useful for visualizing point
+  /// coordinates returned from grounding, layout queries, etc.
+  ///
+  /// `x` / `y` are image-pixel coordinates of the disc's centre. `radius`
+  /// is the disc radius in pixels (`0` paints a single pixel at the
+  /// centre). `(red, green, blue)` is the fill color; alpha is always 255
+  /// (opaque replacement of the underlying pixel).
+  ///
+  /// Coordinates that fall outside the image bounds (negative, or past the
+  /// width / height) silently produce no pixel, so the helper is safe to
+  /// call with the raw output of a grounding model even at the edge of the
+  /// captured rect.
+  pub fn draw_dot(
+    &mut self,
+    x: i32,
+    y: i32,
+    radius: u16,
+    red: u8,
+    green: u8,
+    blue: u8,
+  ) -> napi::Result<()> {
+    self
+      .inner
+      .draw_dot(x, y, radius, [red, green, blue])
       .map_err(Error::from_reason)
   }
 
@@ -115,17 +144,20 @@ impl Screenshot {
   }
 
   #[napi]
-  /// Converts a point in this screenshot to global physical pixel
-  /// coordinates.
+  /// Converts a point in this screenshot to global desktop coordinates.
   ///
-  /// Screenshots may represent only part of a display, and displays may
-  /// use different scale factors. Use this to map `(x, y)` to the
-  /// corresponding global physical pixel position (for example, when
-  /// moving the mouse to the same on-screen point).
+  /// The result is in the library's canonical coordinate space (OS-native
+  /// units; see [`MouseController`]), so it can be fed straight to
+  /// `MouseController.moveMouse` without conversion.
+  ///
+  /// Screenshots may represent only part of a display, and the captured
+  /// region may have been resampled to a different image size, so this
+  /// rescales `(x, y)` from image space back to the captured region (for
+  /// example, when moving the mouse to the same on-screen point).
   ///
   /// See `ScreenshotCoordinateType` for how `coord_type` affects
   /// interpretation of `(x, y)`.
-  pub fn to_global_physical_pixels(
+  pub fn to_global_desktop_coordinates(
     &self,
     x: u32,
     y: u32,
@@ -137,16 +169,17 @@ impl Screenshot {
     };
     self
       .inner
-      .to_global_physical_pixels(x, y, coord_type)
+      .to_global_desktop_coordinates(x, y, coord_type)
       .map_err(Error::from_reason)
   }
 
   #[napi]
   #[allow(clippy::needless_pass_by_value)]
   /// Locate `concept` on this screenshot using the given grounding model and
-  /// return the corresponding **global physical pixel coordinates** `[x, y]`.
-  /// The output can be fed directly to primitives that expect global screen
-  /// coordinates.
+  /// return the corresponding **global desktop coordinates** `[x, y]` in
+  /// OS-native units (may be negative on multi-monitor setups; see
+  /// [`MouseController`]). The output can be fed
+  /// directly to primitives that expect global screen coordinates.
   ///
   /// Equivalent to `model.ground(screenshot, concept)`.
   pub fn ground(&self, model: &GroundingModel, concept: String) -> napi::Result<(i32, i32)> {

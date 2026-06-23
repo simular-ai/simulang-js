@@ -2,7 +2,7 @@
 
 Node.js bindings for the Rust `simulang-rs` crate (via napi-rs). Cross-platform
 desktop automation: apps, windows, accessibility trees, mouse/keyboard,
-screenshots, clipboard, audio, and VLM/STT model access.
+screenshots, clipboard, audio, and VLM/LLM/STT model access.
 
 This file ships in the npm tarball alongside `index.d.ts` and is versioned
 with it.
@@ -10,7 +10,7 @@ with it.
 ## Where the API is documented
 
 Read **`index.d.ts`** first — it is the source of truth. Every class,
-function, and enum is fully typed (~1500 lines) and carries JSDoc covering
+function, and enum is fully typed (~2100 lines) and carries JSDoc covering
 idioms, lifecycle rules, platform quirks, and inter-API trade-offs that types
 alone can't express. The JSDoc is generated from doc comments,
 so the per-symbol guidance there is authoritative — trust it over any
@@ -24,12 +24,22 @@ restatement elsewhere.
 - Many objects are **handles to platform resources** (windows, audio devices,
   accessibility trees, file/directory handles). Their lifetime matters;
   dropping them can free the underlying resource.
-- Coordinates are uniform across platforms: **top-left origin, global
-  physical pixels** (also called device pixels — the raw hardware pixels of
-  the display, not the logical / CSS / point units used in browsers and
-  some desktop UI frameworks). On a 2× HiDPI display, a 1920×1080-logical
-  screen is 3840×2160 in these coordinates. Image and screenshot dimensions
-  are likewise in physical pixels.
+- Coordinates live on the **global desktop**: top-left origin at `(0, 0)` on
+  the primary monitor, in **OS-native units** — the unit is **not** the same
+  on every platform:
+  - **Windows / Linux**: **physical pixels** (raw hardware pixels).
+  - **macOS**: **logical points** — on a 2× Retina display one point spans two
+    hardware pixels, so a 1920×1080-logical screen is `1920×1080` here, not
+    `3840×2160`.
+
+  These are the native units the OS input/accessibility APIs expect, **not**
+  the browser logical/CSS pixel. Within a single OS every API speaks that OS's
+  unit, so coordinates round-trip between `MouseController`, the various
+  `boundingBox()` methods, `Screenshot.toGlobalDesktopCoordinates()`, and
+  grounding output **without conversion**; only code crossing into a different
+  coordinate system (e.g. an Electron overlay measured in CSS pixels) must
+  account for the per-OS unit. Monitors arranged to the left of / above the
+  primary contribute **negative** coordinates, so don't assume `x, y >= 0`.
 
 ## Logging is on by default
 

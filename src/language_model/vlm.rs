@@ -70,16 +70,30 @@ impl GroundingModel {
   }
 
   #[napi]
+  /// Check that the API key works. Throws if it doesn't.
+  ///
+  /// Call right after creating the model so a bad key fails fast,
+  /// before any UI automation has had a chance to steal focus:
+  ///
+  /// ```ts
+  /// try { model.checkAuth() } catch { process.exit(1) }
+  /// ```
+  pub fn check_auth(&self) -> napi::Result<()> {
+    self
+      .inner
+      .check_auth()
+      .map_err(|e| Error::from_reason(e.to_string()))
+  }
+
+  #[napi]
   #[allow(clippy::needless_pass_by_value)]
   /// Locate `concept` on `target` and return zero-based pixel coordinates
   /// `[x, y]`:
   ///
   /// * If `target` is an `Image`, coordinates are in **image-space**.
-  ///   Normalized model outputs are scaled linearly onto
-  ///   `[0, width - 1]` and `[0, height - 1]`.
-  /// * If `target` is a `Screenshot`, coordinates are in **global physical
-  ///   screen space** — suitable to feed directly into primitives that
-  ///   expect global screen coordinates (e.g. `moveTo`, `clickAt`).
+  /// * If `target` is a `Screenshot`, coordinates are in the **global desktop
+  ///   space** in OS-native units (may be negative on multi-monitor setups;
+  ///   see [`MouseController`]).
   ///
   /// Equivalent to `target.ground(model, concept)`.
   pub fn ground(

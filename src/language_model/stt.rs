@@ -68,6 +68,22 @@ impl SttModel {
   }
 
   #[napi]
+  /// Check that the API key works. Throws if it doesn't.
+  ///
+  /// Call right after creating the model so a bad key fails fast,
+  /// before any UI automation has had a chance to steal focus:
+  ///
+  /// ```ts
+  /// try { model.checkAuth() } catch { process.exit(1) }
+  /// ```
+  pub fn check_auth(&self) -> napi::Result<()> {
+    self
+      .inner
+      .check_auth()
+      .map_err(|e| Error::from_reason(e.to_string()))
+  }
+
+  #[napi]
   /// Transcribe a single audio chunk and return the recognised text.
   pub fn transcribe(&self, audio: &SamplesBuffer) -> napi::Result<String> {
     self

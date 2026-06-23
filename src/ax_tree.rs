@@ -1,10 +1,17 @@
 use napi::Error;
 use napi_derive::napi;
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+use simulang_rs::Window as SimulangWindow;
 use simulang_rs::ax_attribute::attr;
-use simulang_rs::traits::{AXNodeActions, AXNodeSynthetic, AXNodeTrait, WindowTrait};
-use simulang_rs::{AXNode, TreeIter, Window as SimulangWindow};
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+use simulang_rs::traits::WindowTrait;
+use simulang_rs::traits::{
+  AXNodeActions, AXNodeAncestry, AXNodeSynthetic, AXNodeTrait, BoundingBoxTrait,
+};
+use simulang_rs::{AXNode, TreeIter};
 
 use crate::aria_role::AriaRole;
+use crate::window::Window;
 
 #[napi]
 /// Tree traversal order for `AccessibilityTree.find()`.
@@ -110,7 +117,7 @@ fn snapshot_node(
 /// Mirrors the trait-level [`CollapsingDepthFirstIter`] used by
 /// `AXNodeTrait::snapshot()`.
 ///
-/// `AXNodeTrait::children` returns `Result<Vec<Self>, String>`; per the
+/// `AXNodeAncestry::children` returns `Result<Vec<Self>, String>`; per the
 /// trait docs (and the convention used by simulang-rs's own search
 /// walkers) we treat failure as "no children" so a single torn-down
 /// subtree cannot abort the whole snapshot.
@@ -133,20 +140,128 @@ fn collect_collapsed_children(
   out
 }
 
+/// macOS root scoping for an [`AccessibilityTree`].
+///
+/// - `App(pid)` keeps the historical application-wide scope: the macOS AX
+///   root is the application element keyed by PID (every window plus the
+///   app menu bar). Storing the PID lets us reattach a fresh `AXUIElement`
+///   on every snapshot.
+/// - `Window(node)` scopes to a single `AXWindow` subtree, used by
+///   [`AccessibilityTree::from_window`]. The `AXUIElement` is held directly
+///   (it can go stale if the window is destroyed and recreated, mirroring
+///   how an `HWND` can on Windows).
+#[cfg(target_os = "macos")]
+enum MacRoot {
+  App(i32),
+  Window(AXNode),
+}
+
 #[napi]
 /// Accessibility tree bound to a specific window. Provides snapshot and
 /// ref-based actions for desktop automation (Windows UIA).
 pub struct AccessibilityTree {
-  root: AXNode,
+  /// Native window handle (Windows) — opaque `HWND` as `isize`. Resolved
+  /// once at construction time and re-attached via
+  /// `Window::from_hwnd_raw(...).node()` on every snapshot.
+  #[cfg(target_os = "windows")]
+  hwnd: isize,
+  /// Root scoping (macOS): application-wide (PID) or a single window — see
+  /// [`MacRoot`].
+  #[cfg(target_os = "macos")]
+  root: MacRoot,
   refs: Vec<AXNode>,
 }
 
 impl AccessibilityTree {
+  /// Re-resolve the tree's root node from its stored platform identifier.
+  ///
+  /// On Windows this calls `Window::node()`, which materialises a fresh
+  /// cached subtree (single `BuildUpdatedCache` IPC) so the subsequent
+  /// walk costs zero additional IPCs. On macOS this rebinds the
+  /// `AXUIElement` for the PID — cheap, no IPC.
+  // Linux (and other not-yet-supported targets) compile only the stub
+  // arm below, which doesn't touch `self`. Keep `clippy::pedantic`
+  // enabled on Windows / macOS where the method actually uses `self`.
+  #[cfg_attr(
+    not(any(target_os = "windows", target_os = "macos")),
+    allow(clippy::unused_self)
+  )]
+  fn resolve_root(&self) -> napi::Result<AXNode> {
+    #[cfg(target_os = "windows")]
+    {
+      SimulangWindow::from_hwnd_raw(self.hwnd)
+        .node()
+        .map_err(Error::from_reason)
+    }
+    #[cfg(target_os = "macos")]
+    {
+      match &self.root {
+        MacRoot::App(pid) => AXNode::from_pid(*pid).map_err(Error::from_reason),
+        MacRoot::Window(node) => Ok(node.clone()),
+      }
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+      Err(Error::from_reason(
+        "AccessibilityTree is not supported on this platform".to_owned(),
+      ))
+    }
+  }
+
   fn get_ref(&self, ref_id: u32) -> napi::Result<&AXNode> {
     self
       .refs
       .get(ref_id as usize)
       .ok_or_else(|| Error::from_reason(format!("Unknown ref_id {ref_id}")))
+  }
+
+  /// Shared core of `find` / `find_by_description`: clear refs, resolve a
+  /// fresh window root, walk it with `TreeIter`, keep nodes matching
+  /// `predicate`, cap at `max_results`, and materialize each hit as a
+  /// flat `AccessibilityNodeJs` carrying a fresh `refId`.
+  ///
+  /// `predicate` is a Rust closure chosen by the calling typed method —
+  /// we deliberately don't expose a JS callback here, since invoking JS
+  /// per node across the napi boundary during a full-tree walk would be
+  /// slow.
+  ///
+  /// KNOWN FOOTGUN: `find` / `find_by_description` read like pure queries
+  /// but, via this helper, `clear()` and rebuild the single `refs` table
+  /// that `snapshot()` and the action methods (`activate`, `set_value`, …)
+  /// also share. A `ref_id` is therefore only valid relative to the *most
+  /// recent* traversal call on the tree — a later `find` silently
+  /// invalidates `ref_id`s handed out by an earlier `snapshot`/`find`.
+  /// Today the app never actions a `find` result's `ref_id` (matches are
+  /// flattened to data, and the only ref-based actioning reads from a
+  /// `snapshot()` on a tree it never calls `find` on), so this is latent,
+  /// not live. The clean fix is to have queries return self-contained
+  /// `AccessibilityNode` handles (like `AccessibilityNode.scoredSearch`)
+  /// instead of sharing the ref table.
+  fn filter_nodes(
+    &mut self,
+    order: TraversalOrder,
+    collapse_structural: bool,
+    max_results: Option<u32>,
+    predicate: impl Fn(&AXNode) -> bool,
+  ) -> Vec<AccessibilityNodeJs> {
+    self.refs.clear();
+    let root = match self.resolve_root() {
+      Ok(node) => node,
+      Err(e) => {
+        log::warn!("AccessibilityTree: failed to resolve window root: {e}");
+        return Vec::new();
+      }
+    };
+    TreeIter::new(root, order.into(), collapse_structural)
+      .map(|(n, _)| n)
+      .filter(|node| predicate(node))
+      .take(max_results.map_or(usize::MAX, |n| n as usize))
+      .map(|node| {
+        let ref_id = u32::try_from(self.refs.len()).unwrap_or(u32::MAX);
+        self.refs.push(node.clone());
+        node_to_js(&node, ref_id)
+      })
+      .collect()
   }
 }
 
@@ -154,25 +269,80 @@ impl AccessibilityTree {
 impl AccessibilityTree {
   #[napi(factory)]
   /// Create an accessibility tree bound to the current foreground window.
+  ///
+  /// The foreground window is resolved **once** at construction time and
+  /// the resulting identifier (HWND on Windows, PID on macOS) is stored
+  /// — subsequent snapshots target that same window even if the user
+  /// alt-tabs away.
   pub fn from_foreground() -> napi::Result<Self> {
-    AXNode::from_focused_application()
-      .map(|root| Self {
-        root,
+    #[cfg(target_os = "windows")]
+    {
+      // Use the existing AXNode entry point + Window::try_from_ax_node
+      // to extract the HWND, so we stay on simulang-rs's public surface
+      // and don't reach for Win32 directly.
+      let live = AXNode::from_focused_application().map_err(Error::from_reason)?;
+      let window = SimulangWindow::try_from_ax_node(&live)
+        .ok_or_else(|| Error::from_reason("Foreground element has no associated native window"))?;
+      Ok(Self {
+        hwnd: window.window_id(),
         refs: Vec::new(),
       })
-      .map_err(Error::from_reason)
+    }
+    #[cfg(target_os = "macos")]
+    {
+      let (_, _, pid) = simulang_rs::get_frontmost_application().map_err(Error::from_reason)?;
+      Ok(Self {
+        root: MacRoot::App(pid),
+        refs: Vec::new(),
+      })
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+      Err(Error::from_reason(
+        "AccessibilityTree.fromForeground is not supported on this platform".to_owned(),
+      ))
+    }
   }
 
   #[napi(factory)]
-  /// Create an accessibility tree bound to the first visible window of a process.
+  /// Create an accessibility tree bound to the first visible window of a
+  /// process. The window is selected at construction time; subsequent
+  /// snapshots target that same window.
   pub fn from_pid(pid: u32) -> napi::Result<Self> {
     #[allow(clippy::cast_possible_wrap)]
-    AXNode::from_pid(pid as i32)
-      .map(|root| Self {
-        root,
+    let pid = pid as i32;
+    #[cfg(target_os = "windows")]
+    {
+      let window = SimulangWindow::all_for_pid(pid)
+        .into_iter()
+        .next()
+        .ok_or_else(|| {
+          Error::from_reason(format!(
+            "No visible top-level window found for process {pid}."
+          ))
+        })?;
+      Ok(Self {
+        hwnd: window.window_id(),
         refs: Vec::new(),
       })
-      .map_err(Error::from_reason)
+    }
+    #[cfg(target_os = "macos")]
+    {
+      // Validate the PID resolves to an AX application — surfaces a clear
+      // error at construction rather than on first snapshot.
+      AXNode::from_pid(pid).map_err(Error::from_reason)?;
+      Ok(Self {
+        root: MacRoot::App(pid),
+        refs: Vec::new(),
+      })
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+      let _ = pid;
+      Err(Error::from_reason(
+        "AccessibilityTree.fromPid is not supported on this platform".to_owned(),
+      ))
+    }
   }
 
   #[napi(factory)]
@@ -180,41 +350,115 @@ impl AccessibilityTree {
   /// On Windows this is an HWND; on macOS it is a PID.
   #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
   pub fn from_hwnd(hwnd: i64) -> napi::Result<Self> {
-    #[cfg(target_os = "macos")]
-    let result = AXNode::from_pid(hwnd as i32);
     #[cfg(target_os = "windows")]
-    let result = SimulangWindow::from_hwnd_raw(hwnd as isize).node();
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    let result: Result<AXNode, String> = Err("from_hwnd is not supported on this platform".into());
-
-    result
-      .map(|root| Self {
-        root,
+    {
+      Ok(Self {
+        hwnd: hwnd as isize,
         refs: Vec::new(),
       })
-      .map_err(Error::from_reason)
+    }
+    #[cfg(target_os = "macos")]
+    {
+      Ok(Self {
+        root: MacRoot::App(hwnd as i32),
+        refs: Vec::new(),
+      })
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+      let _ = hwnd;
+      Err(Error::from_reason(
+        "AccessibilityTree.fromHwnd is not supported on this platform".to_owned(),
+      ))
+    }
+  }
+
+  #[napi(factory)]
+  /// Create an accessibility tree scoped to a single window.
+  ///
+  /// Unlike [`AccessibilityTree.fromForeground`] / [`fromPid`] — which on
+  /// macOS scope to the whole application (every window plus the app menu
+  /// bar) — this scopes to exactly the given window's subtree on **both**
+  /// Windows and macOS. Use it to measure "is this element unique within
+  /// this window", or to snapshot / act on one window of a multi-window
+  /// app.
+  ///
+  /// The window is resolved once at construction; subsequent snapshots
+  /// target that same window. On macOS the underlying `AXWindow` handle can
+  /// go stale if the window is destroyed and recreated (as an `HWND` can on
+  /// Windows).
+  pub fn from_window(window: &Window) -> napi::Result<Self> {
+    #[cfg(target_os = "windows")]
+    {
+      Ok(Self {
+        hwnd: window.inner.window_id(),
+        refs: Vec::new(),
+      })
+    }
+    #[cfg(target_os = "macos")]
+    {
+      let node = window.inner.node().map_err(Error::from_reason)?;
+      Ok(Self {
+        root: MacRoot::Window(node),
+        refs: Vec::new(),
+      })
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+      let _ = window;
+      Err(Error::from_reason(
+        "AccessibilityTree.fromWindow is not supported on this platform".to_owned(),
+      ))
+    }
   }
 
   #[napi(getter)]
   #[must_use]
   /// Get the window title.
   pub fn window_title(&self) -> String {
-    SimulangWindow::try_from_ax_node(&self.root).map_or_else(String::new, |w| w.title())
+    #[cfg(target_os = "windows")]
+    {
+      // `Window::title` calls `GetWindowTextW` — no UIA IPC, no cache build.
+      SimulangWindow::from_hwnd_raw(self.hwnd).title()
+    }
+    #[cfg(target_os = "macos")]
+    {
+      let node = match &self.root {
+        MacRoot::App(pid) => AXNode::from_pid(*pid).ok(),
+        MacRoot::Window(node) => Some(node.clone()),
+      };
+      node
+        .and_then(|root| SimulangWindow::try_from_ax_node(&root))
+        .map_or_else(String::new, |w| w.title())
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+      String::new()
+    }
   }
 
   #[napi(getter)]
   #[must_use]
   /// Get the window handle as an integer ID.
+  /// On Windows this is the HWND; on macOS it is the PID.
   pub fn window_id(&self) -> i64 {
     #[cfg(target_os = "windows")]
     {
-      SimulangWindow::try_from_ax_node(&self.root).map_or(0, |w| w.window_id() as i64)
+      self.hwnd as i64
     }
     #[cfg(target_os = "macos")]
     {
-      self.root.window_id() as i64
+      // macOS has no per-window integer handle; report the owning PID for
+      // both scopes (the application's PID for `App`, the window's owning
+      // PID for `Window`).
+      match &self.root {
+        MacRoot::App(pid) => i64::from(*pid),
+        MacRoot::Window(node) => SimulangWindow::try_from_ax_node(node)
+          .and_then(|w| w.pid().ok())
+          .map_or(0, i64::from),
+      }
     }
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     {
       0
     }
@@ -222,6 +466,12 @@ impl AccessibilityTree {
 
   #[napi]
   /// Take a snapshot of the window's accessibility tree.
+  ///
+  /// Re-resolves the root through `Window::node()` so each call sees
+  /// current data. On Windows the resolve issues a single
+  /// `BuildUpdatedCache` IPC; the recursive walk over children and
+  /// properties then stays entirely in-process, ~40× faster than
+  /// walking a live `cached: false` root.
   ///
   /// `visible_only` (default `false`) controls whether nodes whose
   /// non-standard `AXVisible` attribute reads `false` are dropped from
@@ -236,7 +486,8 @@ impl AccessibilityTree {
   /// links.
   pub fn snapshot(&mut self, visible_only: Option<bool>) -> napi::Result<AccessibilityNodeJs> {
     self.refs.clear();
-    snapshot_node(&self.root, &mut self.refs, visible_only.unwrap_or(false))
+    let root = self.resolve_root()?;
+    snapshot_node(&root, &mut self.refs, visible_only.unwrap_or(false))
       .ok_or_else(|| Error::from_reason("Root element is not visible".to_owned()))
   }
 
@@ -348,31 +599,37 @@ impl AccessibilityTree {
     max_results: Option<u32>,
     collapse_structural: Option<bool>,
   ) -> Vec<AccessibilityNodeJs> {
-    self.refs.clear();
     let visible_only = visible_only.unwrap_or(false);
-    let collapse_structural = collapse_structural.unwrap_or(false);
     // Convert the JS-facing enum into the simulang-rs enum once, so
     // the per-node filter is a cheap discriminant compare instead of
     // a string comparison.
     let role: Option<simulang_rs::AriaRole> = role.map(Into::into);
+    self.filter_nodes(
+      order,
+      collapse_structural.unwrap_or(false),
+      max_results,
+      move |node| {
+        (!visible_only || node.get_attribute_boolean(attr::VISIBLE).ok() != Some(false))
+          && role.is_none_or(|r| node.aria_role() == r)
+          && name.as_ref().is_none_or(|n| {
+            node.title().contains(n.as_str()) || node.description_text().contains(n.as_str())
+          })
+      },
+    )
+  }
 
-    let iter = TreeIter::new(self.root.clone(), order.into(), collapse_structural).map(|(n, _)| n);
-
-    iter
-      .filter(|node| !visible_only || node.get_attribute_boolean(attr::VISIBLE).ok() != Some(false))
-      .filter(|node| role.is_none_or(|r| node.aria_role() == r))
-      .filter(|node| {
-        name.as_ref().is_none_or(|n| {
-          node.title().contains(n.as_str()) || node.description_text().contains(n.as_str())
-        })
-      })
-      .take(max_results.map_or(usize::MAX, |n| n as usize))
-      .map(|node| {
-        let ref_id = u32::try_from(self.refs.len()).unwrap_or(u32::MAX);
-        self.refs.push(node.clone());
-        node_to_js(&node, ref_id)
-      })
-      .collect()
+  #[napi]
+  /// Find every node whose `overallDescription`
+  /// (`AXNodeSynthetic::summary_with_context`) is **exactly** equal to
+  /// `description`, walked in pre-order depth-first.
+  ///
+  /// Clears existing refs; returned nodes carry `refId` values usable
+  /// with the action methods (`activate`, `setValue`, …).
+  #[allow(clippy::needless_pass_by_value)]
+  pub fn find_by_description(&mut self, description: String) -> Vec<AccessibilityNodeJs> {
+    self.filter_nodes(TraversalOrder::DepthFirst, false, None, move |node| {
+      node.summary_with_context() == description
+    })
   }
 }
 

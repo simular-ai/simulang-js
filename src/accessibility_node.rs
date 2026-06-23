@@ -1,7 +1,9 @@
 use napi::Error;
 use napi_derive::napi;
 use simulang_rs::AXNode;
-use simulang_rs::traits::{AXNodeActions, AXNodeSynthetic, AXNodeTrait};
+use simulang_rs::traits::{
+  AXNodeActions, AXNodeAncestry, AXNodeSynthetic, AXNodeTrait, BoundingBoxTrait,
+};
 
 use crate::aria_role::AriaRole;
 use crate::ax_tree::{BoundingBox, TraversalOrder};
@@ -51,6 +53,32 @@ impl AccessibilityNode {
     AXNode::from_pid(pid as i32)
       .map(Self::new)
       .map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Element at screen coordinates (`x`, `y`) via the platform hit-test
+  /// (Windows UIA `ElementFromPoint`, macOS
+  /// `AXUIElementCopyElementAtPosition`, Linux recursive AT-SPI
+  /// `GetAccessibleAtPoint`).
+  ///
+  /// `(x, y)` are global desktop coordinates in the canonical coordinate space
+  /// (OS-native units; see [`MouseController`])
+  /// — the same space `.boundingBox()` and `MouseController` use, so a
+  /// `boundingBox()` corner or cursor `location()` can be passed straight in.
+  /// Returns an **uncached** handle suitable for one-shot reads of properties
+  /// such as `.boundingBox()` or `.overallDescription`; it is not registered
+  /// for ref-based action methods (`activate`, `setValue`, …).
+  ///
+  /// Returns `null` when the point has no accessible element (empty
+  /// desktop, gaps between controls, or — on Linux — a point outside the
+  /// focused application). Throws only on a genuine accessibility-backend
+  /// failure.
+  pub fn from_point(x: i32, y: i32) -> napi::Result<Option<AccessibilityNode>> {
+    Ok(
+      AXNode::from_point(x, y)
+        .map_err(Error::from_reason)?
+        .map(Self::new),
+    )
   }
 
   // ---------------------------------------------------------------
@@ -135,8 +163,20 @@ impl AccessibilityNode {
     self.inner.is_enabled()
   }
 
+  #[napi(getter)]
+  #[must_use]
+  /// Hyperlink target of this node, or `null` when the node is not a link,
+  /// the link has no target, or the platform backend does not expose the
+  /// target through the accessibility API. The string is the raw URL as
+  /// reported by the platform (no parsing or normalisation).
+  pub fn url(&self) -> Option<String> {
+    self.inner.url()
+  }
+
   #[napi]
-  /// Live bounding box of the element in global physical pixels.
+  /// Live bounding box of the element on the global desktop, in the canonical
+  /// coordinate space (OS-native units; see
+  /// [`MouseController`]).
   /// `right` and `bottom` are exclusive (Playwright / DOM convention).
   pub fn bounding_box(&self) -> napi::Result<BoundingBox> {
     self
@@ -157,6 +197,82 @@ impl AccessibilityNode {
   /// simulang-rs's convention of treating walk failures as "no children").
   pub fn children(&self) -> Vec<AccessibilityNode> {
     Self::from_nodes(self.inner.children().unwrap_or_default())
+  }
+
+  #[napi]
+  /// Direct parent node, or `null` if this node has no parent. Parent lookup
+  /// failures throw.
+  pub fn parent(&self) -> napi::Result<Option<AccessibilityNode>> {
+    self
+      .inner
+      .parent()
+      .map(|parent| parent.map(Self::new))
+      .map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Parent chain for this node, nearest parent first, excluding this node.
+  /// Stops when a node has no parent; parent lookup failures throw.
+  pub fn ancestors(&self) -> napi::Result<Vec<AccessibilityNode>> {
+    self
+      .inner
+      .ancestors()
+      .collect::<Result<Vec<_>, _>>()
+      .map(Self::from_nodes)
+      .map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Whether this node is the direct parent of `other`.
+  pub fn is_parent_of(&self, other: &AccessibilityNode) -> napi::Result<bool> {
+    self
+      .inner
+      .is_parent_of(&other.inner)
+      .map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Whether this node is a direct child of `other`.
+  pub fn is_child_of(&self, other: &AccessibilityNode) -> napi::Result<bool> {
+    self
+      .inner
+      .is_child_of(&other.inner)
+      .map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Whether this node is a strict ancestor of `other`.
+  pub fn is_ancestor_of(&self, other: &AccessibilityNode) -> napi::Result<bool> {
+    self
+      .inner
+      .is_ancestor_of(&other.inner)
+      .map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Whether this node is a strict descendant of `other`.
+  pub fn is_descendant_of(&self, other: &AccessibilityNode) -> napi::Result<bool> {
+    self
+      .inner
+      .is_descendant_of(&other.inner)
+      .map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Lowest shared ancestor for this node and `other`, plus that ancestor's
+  /// level from the reached parentless node (`parentless = 0`, its children
+  /// `= 1`). Returns `null` when both chains resolve and no shared ancestor
+  /// exists; lookup failures throw.
+  #[allow(clippy::cast_possible_truncation)]
+  pub fn lowest_common_ancestor(
+    &self,
+    other: &AccessibilityNode,
+  ) -> napi::Result<Option<(AccessibilityNode, u32)>> {
+    self
+      .inner
+      .lowest_common_ancestor(&other.inner)
+      .map(|ancestor| ancestor.map(|(node, level)| (AccessibilityNode::new(node), level as u32)))
+      .map_err(Error::from_reason)
   }
 
   // ---------------------------------------------------------------

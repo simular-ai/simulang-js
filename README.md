@@ -73,3 +73,7 @@ You can also point `simulang` at a local `simulang-js` checkout during developme
 ```bash
 simulang run --simulang-js=/path/to/simulang-js my-script.js
 ```
+
+## Changelog
+
+See [`CHANGELOG.md`](./CHANGELOG.md) for version history and unreleased API changes.

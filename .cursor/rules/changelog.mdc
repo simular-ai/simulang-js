@@ -1,0 +1,34 @@
+---
+description: >-
+  Update CHANGELOG.md when a commit changes public API or user-visible library
+  behavior. Required before finishing work that touches the JS surface.
+alwaysApply: true
+---
+
+# Changelog maintenance
+
+`CHANGELOG.md` is the release notes source for `@simular-ai/simulang-js` and the input that drives the [semantic versioning](https://semver.org/) bump on release (breaking → major, new API/behavior → minor, fixes only → patch). Keep it current whenever you change what consumers see.
+
+## Update the changelog when
+
+- Public exports change in `index.d.ts`, `wrapped.d.ts`, or `wrapped.js` (new, removed, or renamed symbols)
+- Method or function signatures, return types, or thrown errors change
+- Runtime semantics change (defaults, coordinate system, sync vs async, resource lifetime, platform quirks documented in JSDoc)
+- Breaking changes — mark clearly under **Changed** or **Removed** and call out migration steps
+
+Add bullets under **`## [Unreleased]`** using [Keep a Changelog](https://keepachangelog.com/) sections: **Added**, **Changed**, **Deprecated**, **Removed**, **Fixed**, **Security**.
+
+## Skip the changelog when
+
+- Changes are internal to Rust with no JS/API surface difference
+- CI, tooling, or dependency-only bumps with no behavior change
+- Tests, examples, or comments that only reflect existing behavior
+
+## On release
+
+The `version` lifecycle script (`scripts/stamp-changelog.mjs`) renames `[Unreleased]` to the bumped version and date automatically — don't edit those headings by hand. Just make sure the `[Unreleased]` body accurately reflects what's about to ship before running `npm version`. See `PUBLISH.md`.
+
+## Style
+
+- Write for library consumers, not implementers — describe outcomes ("`Instance.isRunning()` polls process state") not file names
+- One concise bullet per user-visible change; group related API under one bullet when it ships together

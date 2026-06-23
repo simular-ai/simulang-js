@@ -29,10 +29,38 @@ impl Image {
   /// Draws a cross-hair grid on the image.
   ///
   /// Grid squares have the specified `width` and `height`.
-  pub fn add_grid(&mut self, width: u16, height: u16) -> napi::Result<()> {
+  pub fn draw_grid(&mut self, width: u16, height: u16) -> napi::Result<()> {
     self
       .inner
-      .add_grid(width, height)
+      .draw_grid(width, height)
+      .map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Paints a filled disc on the image. Useful for visualizing point
+  /// coordinates returned from grounding, layout queries, etc.
+  ///
+  /// `x` / `y` are image-pixel coordinates of the disc's centre. `radius`
+  /// is the disc radius in pixels (`0` paints a single pixel at the
+  /// centre). `(red, green, blue)` is the fill color; alpha is always 255
+  /// (opaque replacement of the underlying pixel).
+  ///
+  /// Coordinates that fall outside the image bounds (negative, or past the
+  /// width / height) silently produce no pixel, so the helper is safe to
+  /// call with the raw output of a grounding model even at the edge of the
+  /// captured rect.
+  pub fn draw_dot(
+    &mut self,
+    x: i32,
+    y: i32,
+    radius: u16,
+    red: u8,
+    green: u8,
+    blue: u8,
+  ) -> napi::Result<()> {
+    self
+      .inner
+      .draw_dot(x, y, radius, [red, green, blue])
       .map_err(Error::from_reason)
   }
 

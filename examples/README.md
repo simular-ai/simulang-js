@@ -31,6 +31,7 @@ node screenshot.mjs
 | `chrome_google_search_button.mjs` | Opens google.com in Chrome and locates the search button by _concept text_, using BoW Jaccard scoring over `overallDescription`.                                                             |
 | `open-app.mjs`                    | Opens an app, lists its windows, snapshots its accessibility tree.                                                                                                                           |
 | `loopback.mjs`                    | Plays an audio file while capturing system audio, then transcribes it.                                                                                                                       |
+| `ask.mjs`                         | Drives the `AskModel` LLM primitive through prompt-only, text-only, image-only, and text + multi-image calls, using a real ax-tree snapshot and back-to-back screenshots as context.         |
 | `logger.mjs`                      | Forwards Rust `log` records to a JS callback (env_logger-style filter spec).                                                                                                                 |
 | `log-window.mjs`                  | Pipes Rust `log::*!` records into a floating, always-on-top log window. Requires the optional [`@simular-ai/simulang-log-viewer`](../README.md#3-optional--install-the-log-viewer) peer dep. |
 
@@ -40,8 +41,9 @@ Unlike a sandboxed library call, most of these examples perform **real actions**
 
 - `keyboard.mjs` and `google_search.mjs` synthesize keystrokes — make sure the intended window is focused, or text will land somewhere unexpected.
 - `clipboard.mjs` overwrites your current clipboard contents (it restores them at the end).
-- `screenshot.mjs`, `google_search.mjs`, and `loopback.mjs` capture your screen or system audio.
+- `screenshot.mjs`, `google_search.mjs`, `loopback.mjs`, and `ask.mjs` capture your screen or system audio.
 - `system.mjs` and `google_search.mjs` launch a browser window.
+- `ask.mjs` and `loopback.mjs` send screen captures / audio to a remote LLM provider — make sure the configured provider is one you're OK sharing that content with. Set `OPENROUTER_API_KEY` (or drop a custom provider config under `~/.config/simulang/providers/`) before running `ask.mjs`.
 
 ### Required OS permissions
 

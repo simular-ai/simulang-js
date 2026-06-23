@@ -16,6 +16,26 @@ export declare class AccessibilityNode {
   static fromFocusedApplication(): AccessibilityNode
   /** Root node of the application identified by `pid`. */
   static fromPid(pid: number): AccessibilityNode
+  /**
+   * Element at screen coordinates (`x`, `y`) via the platform hit-test
+   * (Windows UIA `ElementFromPoint`, macOS
+   * `AXUIElementCopyElementAtPosition`, Linux recursive AT-SPI
+   * `GetAccessibleAtPoint`).
+   *
+   * `(x, y)` are global desktop coordinates in the canonical coordinate space
+   * (OS-native units; see [`MouseController`])
+   * — the same space `.boundingBox()` and `MouseController` use, so a
+   * `boundingBox()` corner or cursor `location()` can be passed straight in.
+   * Returns an **uncached** handle suitable for one-shot reads of properties
+   * such as `.boundingBox()` or `.overallDescription`; it is not registered
+   * for ref-based action methods (`activate`, `setValue`, …).
+   *
+   * Returns `null` when the point has no accessible element (empty
+   * desktop, gaps between controls, or — on Linux — a point outside the
+   * focused application). Throws only on a genuine accessibility-backend
+   * failure.
+   */
+  static fromPoint(x: number, y: number): AccessibilityNode | null
   /** Cross-platform ARIA role. */
   get role(): AriaRole
   /** Accessible name (title / label). */
@@ -42,7 +62,16 @@ export declare class AccessibilityNode {
   /** Whether the node accepts user input. */
   get isEnabled(): boolean
   /**
-   * Live bounding box of the element in global physical pixels.
+   * Hyperlink target of this node, or `null` when the node is not a link,
+   * the link has no target, or the platform backend does not expose the
+   * target through the accessibility API. The string is the raw URL as
+   * reported by the platform (no parsing or normalisation).
+   */
+  get url(): string | null
+  /**
+   * Live bounding box of the element on the global desktop, in the canonical
+   * coordinate space (OS-native units; see
+   * [`MouseController`]).
    * `right` and `bottom` are exclusive (Playwright / DOM convention).
    */
   boundingBox(): BoundingBox
@@ -52,6 +81,31 @@ export declare class AccessibilityNode {
    * simulang-rs's convention of treating walk failures as "no children").
    */
   children(): Array<AccessibilityNode>
+  /**
+   * Direct parent node, or `null` if this node has no parent. Parent lookup
+   * failures throw.
+   */
+  parent(): AccessibilityNode | null
+  /**
+   * Parent chain for this node, nearest parent first, excluding this node.
+   * Stops when a node has no parent; parent lookup failures throw.
+   */
+  ancestors(): Array<AccessibilityNode>
+  /** Whether this node is the direct parent of `other`. */
+  isParentOf(other: AccessibilityNode): boolean
+  /** Whether this node is a direct child of `other`. */
+  isChildOf(other: AccessibilityNode): boolean
+  /** Whether this node is a strict ancestor of `other`. */
+  isAncestorOf(other: AccessibilityNode): boolean
+  /** Whether this node is a strict descendant of `other`. */
+  isDescendantOf(other: AccessibilityNode): boolean
+  /**
+   * Lowest shared ancestor for this node and `other`, plus that ancestor's
+   * level from the reached parentless node (`parentless = 0`, its children
+   * `= 1`). Returns `null` when both chains resolve and no shared ancestor
+   * exists; lookup failures throw.
+   */
+  lowestCommonAncestor(other: AccessibilityNode): [AccessibilityNode, number] | null
   /**
    * Render this node's accessibility subtree as an indented
    * Playwright-style aria snapshot string.
@@ -118,21 +172,57 @@ export declare class AccessibilityNode {
  * ref-based actions for desktop automation (Windows UIA).
  */
 export declare class AccessibilityTree {
-  /** Create an accessibility tree bound to the current foreground window. */
+  /**
+   * Create an accessibility tree bound to the current foreground window.
+   *
+   * The foreground window is resolved **once** at construction time and
+   * the resulting identifier (HWND on Windows, PID on macOS) is stored
+   * — subsequent snapshots target that same window even if the user
+   * alt-tabs away.
+   */
   static fromForeground(): AccessibilityTree
-  /** Create an accessibility tree bound to the first visible window of a process. */
+  /**
+   * Create an accessibility tree bound to the first visible window of a
+   * process. The window is selected at construction time; subsequent
+   * snapshots target that same window.
+   */
   static fromPid(pid: number): AccessibilityTree
   /**
    * Create an accessibility tree from a platform-specific window identifier.
    * On Windows this is an HWND; on macOS it is a PID.
    */
   static fromHwnd(hwnd: number): AccessibilityTree
+  /**
+   * Create an accessibility tree scoped to a single window.
+   *
+   * Unlike [`AccessibilityTree.fromForeground`] / [`fromPid`] — which on
+   * macOS scope to the whole application (every window plus the app menu
+   * bar) — this scopes to exactly the given window's subtree on **both**
+   * Windows and macOS. Use it to measure "is this element unique within
+   * this window", or to snapshot / act on one window of a multi-window
+   * app.
+   *
+   * The window is resolved once at construction; subsequent snapshots
+   * target that same window. On macOS the underlying `AXWindow` handle can
+   * go stale if the window is destroyed and recreated (as an `HWND` can on
+   * Windows).
+   */
+  static fromWindow(window: Window): AccessibilityTree
   /** Get the window title. */
   get windowTitle(): string
-  /** Get the window handle as an integer ID. */
+  /**
+   * Get the window handle as an integer ID.
+   * On Windows this is the HWND; on macOS it is the PID.
+   */
   get windowId(): number
   /**
    * Take a snapshot of the window's accessibility tree.
+   *
+   * Re-resolves the root through `Window::node()` so each call sees
+   * current data. On Windows the resolve issues a single
+   * `BuildUpdatedCache` IPC; the recursive walk over children and
+   * properties then stays entirely in-process, ~40× faster than
+   * walking a live `cached: false` root.
    *
    * `visible_only` (default `false`) controls whether nodes whose
    * non-standard `AXVisible` attribute reads `false` are dropped from
@@ -197,6 +287,15 @@ export declare class AccessibilityTree {
     maxResults?: number | undefined | null,
     collapseStructural?: boolean | undefined | null,
   ): Array<AccessibilityNodeJs>
+  /**
+   * Find every node whose `overallDescription`
+   * (`AXNodeSynthetic::summary_with_context`) is **exactly** equal to
+   * `description`, walked in pre-order depth-first.
+   *
+   * Clears existing refs; returned nodes carry `refId` values usable
+   * with the action methods (`activate`, `setValue`, …).
+   */
+  findByDescription(description: string): Array<AccessibilityNodeJs>
 }
 
 /** Represents an application that can be opened. */
@@ -233,6 +332,64 @@ export declare class App {
     visibility: Visibility,
     waitForLoadComplete: boolean,
   ): Instance
+}
+
+/**
+ * A free-form chat-completions LLM (optionally vision-capable) — the JS
+ * analogue of the `ask` primitive.
+ *
+ * Given a `prompt`, optional accessibility/structural `text`, and zero or
+ * more `images`, [`AskModel.ask`] returns the model's response as a plain
+ * string. The wire format is OpenAI-compatible chat completions, so any
+ * provider config that points at such an endpoint works.
+ */
+export declare class AskModel {
+  /**
+   * First LLM model advertised by the first LLM-capable provider in the
+   * loaded configuration whose credentials are currently available.
+   * Throws if no provider in the loaded config advertises an LLM service.
+   */
+  static default(): AskModel
+  /**
+   * Resolve a model alias against the loaded config (e.g.
+   * `"openrouter_gpt_4o_mini"` from the bundled `openrouter` provider, or
+   * any alias declared by a user provider). Throws if the alias is unknown.
+   */
+  static byAlias(alias: string): AskModel
+  /**
+   * Every LLM model alias accepted by `byAlias` on this machine,
+   * deduplicated and sorted alphabetically. Use to discover what aliases
+   * the loaded config (bundled defaults plus any user provider files)
+   * advertises.
+   */
+  static availableAliases(): Array<string>
+  /** The wire-level model identifier sent in the request body. */
+  get name(): string
+  /**
+   * Check that the API key works. Throws if it doesn't.
+   *
+   * Call right after creating the model so a bad key fails fast,
+   * before any UI automation has had a chance to steal focus:
+   *
+   * ```ts
+   * try { model.checkAuth() } catch { process.exit(1) }
+   * ```
+   */
+  checkAuth(): void
+  /**
+   * Ask the model a question, optionally grounded in accessibility text
+   * and/or images.
+   *
+   * - `prompt`: the question or task to answer.
+   * - `text`: optional accessibility-tree (or any) text included as
+   *   structural context. Pass `null` / omit to skip.
+   * - `images`: zero or more images to attach. Each is encoded as a
+   *   base64 data URL and sent as an `image_url` chat content part. Pass
+   *   `null` / omit for none.
+   *
+   * Returns the trimmed assistant response on success.
+   */
+  ask(prompt: string, text?: string | undefined | null, images?: Array<Image> | undefined | null): string
 }
 
 /**
@@ -436,15 +593,24 @@ export declare class GroundingModel {
   /** The wire-level model identifier sent in the request body. */
   get name(): string
   /**
+   * Check that the API key works. Throws if it doesn't.
+   *
+   * Call right after creating the model so a bad key fails fast,
+   * before any UI automation has had a chance to steal focus:
+   *
+   * ```ts
+   * try { model.checkAuth() } catch { process.exit(1) }
+   * ```
+   */
+  checkAuth(): void
+  /**
    * Locate `concept` on `target` and return zero-based pixel coordinates
    * `[x, y]`:
    *
    * * If `target` is an `Image`, coordinates are in **image-space**.
-   *   Normalized model outputs are scaled linearly onto
-   *   `[0, width - 1]` and `[0, height - 1]`.
-   * * If `target` is a `Screenshot`, coordinates are in **global physical
-   *   screen space** — suitable to feed directly into primitives that
-   *   expect global screen coordinates (e.g. `moveTo`, `clickAt`).
+   * * If `target` is a `Screenshot`, coordinates are in the **global desktop
+   *   space** in OS-native units (may be negative on multi-monitor setups;
+   *   see [`MouseController`]).
    *
    * Equivalent to `target.ground(model, concept)`.
    */
@@ -460,7 +626,22 @@ export declare class Image {
    *
    * Grid squares have the specified `width` and `height`.
    */
-  addGrid(width: number, height: number): void
+  drawGrid(width: number, height: number): void
+  /**
+   * Paints a filled disc on the image. Useful for visualizing point
+   * coordinates returned from grounding, layout queries, etc.
+   *
+   * `x` / `y` are image-pixel coordinates of the disc's centre. `radius`
+   * is the disc radius in pixels (`0` paints a single pixel at the
+   * centre). `(red, green, blue)` is the fill color; alpha is always 255
+   * (opaque replacement of the underlying pixel).
+   *
+   * Coordinates that fall outside the image bounds (negative, or past the
+   * width / height) silently produce no pixel, so the helper is safe to
+   * call with the raw output of a grounding model even at the edge of the
+   * captured rect.
+   */
+  drawDot(x: number, y: number, radius: number, red: number, green: number, blue: number): void
   /**
    * Compress the image by converting it to JPEG with the specified quality.
    *
@@ -518,6 +699,8 @@ export declare class Instance {
   isFocused(): boolean
   /** Brings the instance to the foreground and gives it focus. */
   focus(): boolean
+  /** Returns all visible top-level windows belonging to this instance. */
+  windows(): Array<Window>
   content(): string
   /** Returns true if the instance has an accessibility tree. */
   isAccessible(): boolean
@@ -535,6 +718,19 @@ export declare class Instance {
    * instance, we should disable the accessibility tree to save resources.
    */
   disableAccessibility(): void
+  /**
+   * Request the application to exit gracefully. Returns when the request has
+   * been dispatched, not when the process has actually terminated; poll
+   * [`Self::is_running`] if you need to wait.
+   */
+  close(): void
+  /**
+   * Force-terminate immediately. The application gets no chance to save state
+   * or run cleanup handlers.
+   */
+  kill(): void
+  /** `true` if the underlying process is still running. Cheap, non-blocking. */
+  isRunning(): boolean
   /**
    * Search this application's accessibility tree by *concept text*, using
    * bag-of-words paired-Jaccard scoring against each node's
@@ -664,12 +860,35 @@ export declare class LoopbackSource {
 }
 
 /**
- * Contains functions to control the mouse and to get the location of
- * the cursor. A cartesian coordinate system is used for specifying
- * coordinates. The origin is located in the top-left corner of the
- * current screen, with positive values extending along the axes down
- * and to the right of the origin point and it is measured in pixels.
- * The same coordinate system is used on all operating systems.
+ * Contains functions to control the mouse and to get the cursor position.
+ *
+ * # Canonical coordinate space
+ *
+ * This is the reference description of the coordinate space used throughout
+ * the library. `Window.boundingBox()`, `AccessibilityNode.boundingBox()`,
+ * `AccessibilityNode.fromPoint()`, screenshots, and grounding-model output
+ * all live in this same space, so coordinates round-trip between them
+ * **without conversion**.
+ *
+ * Absolute coordinates live on the **global desktop**: top-left origin at
+ * `(0, 0)` on the primary monitor, with the OS's native units. The unit is
+ * **not** the same on every OS:
+ *
+ * - **Windows** and **Linux** use **physical pixels** (raw hardware pixels).
+ * - **macOS** uses **logical points** — on a 2× Retina display one point spans
+ *   two hardware pixels, so coordinates are half the physical-pixel count.
+ *
+ * Within a single OS every function speaks that OS's unit, so the
+ * round-trip guarantee holds; only code that crosses into a *different*
+ * coordinate system (e.g. an Electron overlay measured in CSS pixels) needs to
+ * account for the per-OS unit. These are also the native units the OS
+ * input/accessibility APIs expect, so they are *not* the browser logical/CSS
+ * pixel.
+ *
+ * Monitors arranged to the left of or above the primary display contribute
+ * **negative** coordinates, so callers should not assume `x, y >= 0`. Use
+ * [`Screen.all`] / [`Screen.fromWindow`] to discover where the
+ * addressable region actually is.
  */
 export declare class MouseController {
   constructor()
@@ -685,14 +904,14 @@ export declare class MouseController {
    * You can specify absolute coordinates or relative from the current
    * position.
    *
-   * If you use absolute coordinates, the top left corner of your
-   * monitor screen is x=0 y=0. Move the cursor down the screen by
-   * increasing the y and to the right by increasing x coordinate.
+   * With absolute coordinates, `(x, y)` is in the global desktop space
+   * described on [`MouseController`]: top-left of the primary monitor is
+   * `(0, 0)`, OS-native units (physical pixels on Windows/Linux, logical
+   * points on macOS), and secondary monitors arranged above / to the left
+   * of the primary may have negative coordinates.
    *
-   * If you use relative coordinates, a positive x value moves the
-   * mouse cursor `x` pixels to the right. A negative value for `x`
-   * moves the mouse cursor to the left. A positive value of y moves
-   * the mouse cursor down, a negative one moves the mouse cursor up.
+   * With relative coordinates, a positive `x` moves the cursor `x`
+   * pixels to the right; a positive `y` moves it down.
    */
   moveMouse(x: number, y: number, coordinate: Coordinate): void
   /**
@@ -702,7 +921,10 @@ export declare class MouseController {
    * ones up/left.
    */
   scroll(deltaX: number, deltaY: number): void
-  /** Get the location of the mouse in pixels. */
+  /**
+   * Get the location of the mouse in the canonical global-desktop space
+   * (OS-native units; see [`MouseController`]).
+   */
   location(): [number, number]
 }
 
@@ -836,22 +1058,55 @@ export declare class SamplesBuffer {
   transcribe(model: SttModel): string
 }
 
-/** Represents a physical display/screen. */
+/** Represents a connected display/screen on the global desktop. */
 export declare class Screen {
-  /** Returns the screen identifier for the main screen. */
+  /** Returns the main / primary screen. */
   static mainScreen(): Screen
   /**
-   * Returns the screen identifier for the screen on which the mouse
-   * is located. If the mouse is not on any screen, the main screen
-   * is returned.
+   * Returns the screen on which the mouse cursor is located.
+   * Falls back to the main screen if the cursor is not on any
+   * connected display.
    */
   static fromCurrentMouseLocation(): Screen
   /**
-   * Returns the dimensions of the screen in pixels.
+   * Returns the screen the given window is on.
    *
-   * The return value is `[x, y, width, height]`.
+   * "On" is the connected display that contains the largest area of
+   * [`Window.boundingBox`] — the same heuristic the OS uses to decide
+   * a window's "owning" screen, so the result matches what the system
+   * considers the window's screen (the one its window controls render
+   * on, the one full-screen mode targets, etc.).
+   *
+   * Throws if the window has no measurable overlap with any connected
+   * display — for example when the window is fully off-screen,
+   * minimised to an off-screen state, or on a virtual desktop with no
+   * attached display. There is no "correct" screen to pick in that
+   * case; callers that prefer a fallback can wrap in `try` / `catch`
+   * and call [`Screen.mainScreen`].
    */
-  dimensions(): [number, number, number, number]
+  static fromWindow(window: Window): Screen
+  /**
+   * All currently connected displays.
+   *
+   * Order is platform-defined; do not rely on it. The result is a
+   * snapshot — connect / disconnect events that happen during the
+   * call are not signalled.
+   */
+  static all(): Array<Screen>
+  /**
+   * Live bounding box of the screen on the global desktop.
+   *
+   * Top-left of the primary monitor is `(0, 0)`, in the canonical coordinate
+   * space (OS-native units; see [`MouseController`]).
+   * Monitors arranged to the left of or above the primary display
+   * contribute **negative** `left` / `top`. `right` and `bottom` are
+   * exclusive (Playwright / DOM convention), matching
+   * [`Window.boundingBox`].
+   *
+   * For just the size, read `right - left` and `bottom - top` on the
+   * returned box.
+   */
+  boundingBox(): BoundingBox
 }
 
 /** Represents a screenshot capture. */
@@ -863,7 +1118,22 @@ export declare class Screenshot {
    *
    * Grid squares have the specified `width` and `height`.
    */
-  addGrid(width: number, height: number): void
+  drawGrid(width: number, height: number): void
+  /**
+   * Paints a filled disc on the image. Useful for visualizing point
+   * coordinates returned from grounding, layout queries, etc.
+   *
+   * `x` / `y` are image-pixel coordinates of the disc's centre. `radius`
+   * is the disc radius in pixels (`0` paints a single pixel at the
+   * centre). `(red, green, blue)` is the fill color; alpha is always 255
+   * (opaque replacement of the underlying pixel).
+   *
+   * Coordinates that fall outside the image bounds (negative, or past the
+   * width / height) silently produce no pixel, so the helper is safe to
+   * call with the raw output of a grounding model even at the edge of the
+   * captured rect.
+   */
+  drawDot(x: number, y: number, radius: number, red: number, green: number, blue: number): void
   /**
    * Compress the image by converting it to JPEG with the specified quality.
    *
@@ -893,23 +1163,27 @@ export declare class Screenshot {
    */
   base64(): string
   /**
-   * Converts a point in this screenshot to global physical pixel
-   * coordinates.
+   * Converts a point in this screenshot to global desktop coordinates.
    *
-   * Screenshots may represent only part of a display, and displays may
-   * use different scale factors. Use this to map `(x, y)` to the
-   * corresponding global physical pixel position (for example, when
-   * moving the mouse to the same on-screen point).
+   * The result is in the library's canonical coordinate space (OS-native
+   * units; see [`MouseController`]), so it can be fed straight to
+   * `MouseController.moveMouse` without conversion.
+   *
+   * Screenshots may represent only part of a display, and the captured
+   * region may have been resampled to a different image size, so this
+   * rescales `(x, y)` from image space back to the captured region (for
+   * example, when moving the mouse to the same on-screen point).
    *
    * See `ScreenshotCoordinateType` for how `coord_type` affects
    * interpretation of `(x, y)`.
    */
-  toGlobalPhysicalPixels(x: number, y: number, coordType: ScreenshotCoordinateType): [number, number]
+  toGlobalDesktopCoordinates(x: number, y: number, coordType: ScreenshotCoordinateType): [number, number]
   /**
    * Locate `concept` on this screenshot using the given grounding model and
-   * return the corresponding **global physical pixel coordinates** `[x, y]`.
-   * The output can be fed directly to primitives that expect global screen
-   * coordinates.
+   * return the corresponding **global desktop coordinates** `[x, y]` in
+   * OS-native units (may be negative on multi-monitor setups; see
+   * [`MouseController`]). The output can be fed
+   * directly to primitives that expect global screen coordinates.
    *
    * Equivalent to `model.ground(screenshot, concept)`.
    */
@@ -917,8 +1191,9 @@ export declare class Screenshot {
 }
 
 /**
- * Describes how `(x, y)` coordinates passed to
- * `Screenshot.toGlobalPhysicalPixels` should be interpreted.
+ * How a screenshot-relative `(x, y)` coordinate is expressed: as absolute
+ * screenshot-image pixels or normalized to a fixed range. Construct one with
+ * [`ScreenshotCoordinateType.absolute`] or [`ScreenshotCoordinateType.normalized`].
  */
 export declare class ScreenshotCoordinateType {
   /**
@@ -967,6 +1242,17 @@ export declare class SttModel {
   static availableAliases(): Array<string>
   /** The wire-level model identifier sent in the request body. */
   get name(): string
+  /**
+   * Check that the API key works. Throws if it doesn't.
+   *
+   * Call right after creating the model so a bad key fails fast,
+   * before any UI automation has had a chance to steal focus:
+   *
+   * ```ts
+   * try { model.checkAuth() } catch { process.exit(1) }
+   * ```
+   */
+  checkAuth(): void
   /** Transcribe a single audio chunk and return the recognised text. */
   transcribe(audio: SamplesBuffer): string
 }
@@ -992,10 +1278,52 @@ export declare class Window {
   static allForPid(pid: number): Array<Window>
   /** All visible top-level windows across every process. */
   static all(): Array<Window>
+  /**
+   * The top-level window at screen coordinates `(x, y)`, or `null` when no
+   * window sits under the point.
+   *
+   * `(x, y)` are global desktop coordinates in the canonical coordinate
+   * space (OS-native units; see [`MouseController`]) — the same space
+   * `Window.boundingBox`, `AccessibilityNode.fromPoint`, and
+   * `MouseController.location` use, so a cursor `location()` can be passed
+   * straight in.
+   *
+   * Platform notes:
+   * - **macOS**: returns the containing `AXWindow` of the element under the
+   *   cursor — the window itself, not the whole application.
+   * - **Windows**: returns the top-level window (`GA_ROOT`) of whatever
+   *   control sits under the cursor.
+   * - **Linux**: always `null` (no per-point window hit-test).
+   */
+  static fromPoint(x: number, y: number): Window | null
   /** Window title (may be empty). */
   get title(): string
   /** Process ID that owns this window. */
   get pid(): number
+  /**
+   * Live bounding box of the window on the global desktop, in the canonical
+   * coordinate space (OS-native units; see
+   * [`MouseController`]).
+   * `right` and `bottom` are exclusive (Playwright / DOM convention).
+   * Coordinates can be negative when the window sits on a monitor that
+   * is arranged to the left of / above the primary display.
+   */
+  boundingBox(): BoundingBox
+  /**
+   * The screen this window currently lives on.
+   *
+   * "Lives on" is the connected display that contains the largest
+   * area of [`Window.boundingBox`] — the same heuristic the OS uses
+   * to decide a window's "owning" screen, so the result matches what
+   * the system considers the window's screen (the one its window
+   * controls render on, the one full-screen mode targets, etc.).
+   *
+   * Throws if the window has no measurable overlap with any connected
+   * display. Callers that prefer a fallback can wrap in
+   * `try` / `catch` and call [`Screen.mainScreen`]. Equivalent to
+   * `Screen.fromWindow(window)`.
+   */
+  screen(): Screen
   /** Minimize the window (hide to taskbar / Dock). */
   minimize(): void
   /** Maximize / zoom the window. */
@@ -1005,6 +1333,69 @@ export declare class Window {
    * pressing Alt+F4 / Cmd+W).
    */
   close(): void
+  /**
+   * Bring this window to the foreground and give it keyboard focus.
+   *
+   * Platform notes:
+   * - **macOS**: activates the owning application and raises the
+   *   window via the accessibility `AXRaise` action.
+   * - **Windows**: `SetForegroundWindow` + `BringWindowToTop`.
+   *   Subject to the foreground-lock rules — may silently downgrade
+   *   to a taskbar flash if the foreground process hasn't granted
+   *   permission.
+   * - **Linux**: EWMH `_NET_ACTIVE_WINDOW` client message to the WM.
+   */
+  focus(): boolean
+  /**
+   * Move the cursor to a point inside this window.
+   *
+   * `(x, y)` are **window-frame-relative**, in OS-native units (physical
+   * pixels on Windows/Linux, logical points on macOS) — `(0, 0)` is the
+   * top-left of [`Window.boundingBox`], which includes the title bar and
+   * other OS chrome.
+   *
+   * Two validation passes run before any input is synthesized, and either
+   * failing throws:
+   * 1. `(x, y)` must lie inside the window frame (`[0, width) × [0,
+   *    height)`).
+   * 2. The resulting global point must fall on at least one connected
+   *    display. Windows dragged partly off-screen can map an in-frame
+   *    point to a coordinate the OS would silently clamp to a display
+   *    edge — erroring out is strictly more useful than moving the cursor
+   *    somewhere unintended and clicking the wrong thing.
+   *
+   * Does **not** focus the window. Call [`Window.focus`] (or
+   * [`Instance.focus`]) first if the click target requires the window
+   * to be active.
+   */
+  moveMouse(x: number, y: number): void
+  /**
+   * Press / release a mouse button at the cursor's current location.
+   *
+   * Provided for ergonomic parity with [`Window.moveMouse`] — combine
+   * the two for press / drag / release patterns. Takes no coordinate
+   * argument: pair with `moveMouse` when you need to control where the
+   * press lands.
+   */
+  button(button: Button, direction: Direction): void
+  /**
+   * Move the cursor to `(x, y)` inside this window and synthesise a
+   * mouse button event. Sugar for `moveMouse(x, y); button(...)`.
+   *
+   * Coordinates are window-frame-relative (see [`Window.moveMouse`]), and
+   * are subject to the same bounds / on-screen validation: an off-frame or
+   * off-screen target throws instead of clicking the wrong location.
+   * Does not focus the window.
+   */
+  click(x: number, y: number, button: Button, direction: Direction): void
+  /**
+   * Scroll the wheel by `(deltaX, deltaY)` ticks at the cursor's
+   * current location. Positive `deltaY` scrolls down; positive
+   * `deltaX` scrolls right. Does not reposition the cursor first —
+   * pair with [`Window.moveMouse`] if you need scrolling to happen at
+   * a specific point inside the window.
+   */
+  scroll(deltaX: number, deltaY: number): void
   /**
    * Render the window's accessibility subtree as an indented
    * Playwright-style aria snapshot.
@@ -1016,6 +1407,43 @@ export declare class Window {
    * [`AccessibilityTree.snapshot`] instead.
    */
   snapshot(): string
+  /**
+   * Capture just this window's pixels.
+   *
+   * Reads from the window's own backing store, so overlapping windows do
+   * **not** bleed through and the whole window is captured even where it is
+   * occluded or extends past a display edge — partially off-screen and
+   * multi-display-spanning windows are captured in full. The window must be
+   * on-screen at capture time: a minimized or fully off-display window
+   * throws, because there is nothing to capture.
+   */
+  screenshot(hideCursor: boolean): Screenshot
+  /**
+   * Locate `concept` inside this window's pixels and return its **global
+   * desktop coordinates** `[x, y]` in OS-native units (may be negative on
+   * multi-monitor setups; see [`MouseController`]), ready to feed straight
+   * into [`MouseController.moveMouse`] / click helpers.
+   *
+   * Sugar for `screenshot(true).ground(model, concept)` — the cursor is
+   * hidden because it can occlude or distract the model. Restricts the
+   * model's search to this window's bounds, which is both faster (fewer
+   * pixels to upload) and more accurate (no risk of grounding onto a
+   * concept that happens to be elsewhere on the screen) than grounding a
+   * full-screen screenshot.
+   *
+   * Drop down to [`Window.screenshot`] + [`Screenshot.ground`] directly
+   * when you want to keep the cursor visible, reuse the screenshot across
+   * multiple `ground` calls, or shrink / compress the image before
+   * sending it.
+   *
+   * The screenshot includes any portion of the window that's past the
+   * desktop edge (the capture reads the window's own backing store, not a
+   * display rectangle). A `concept` the model locates in that off-screen
+   * region returns coordinates the OS won't route a click to;
+   * [`Window.moveMouse`] catches this and errors out instead of clicking
+   * the nearest on-screen point.
+   */
+  ground(model: GroundingModel, concept: string): [number, number]
   /**
    * Search this window's accessibility subtree by *concept text*, using
    * bag-of-words paired-Jaccard scoring against each node's
