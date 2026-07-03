@@ -14,7 +14,7 @@ crate-type = ["cdylib"]
 napi        = "3.9.0"
 napi-derive = "3.5.6"
 
-env_filter = "1.0"
+env_filter = "2.0"
 log = "0.4"
 parking_lot = "0.12"
 simulang-rs = { git = "ssh://git@github.com/simular-ai/simulang-rs-internal", tag = "v0.5.5", features = [
