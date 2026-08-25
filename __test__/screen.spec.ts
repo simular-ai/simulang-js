@@ -1,21 +1,31 @@
 import { test, expect } from 'vitest'
 
-import { Screen } from '../index'
+import { Machine } from '../index'
 
-test('main_screen_returns_non_zero_dimensions', () => {
-  const screen = Screen.mainScreen()
-  const [, , width, height] = screen.dimensions()
-  expect(width).toBeGreaterThan(0)
-  expect(height).toBeGreaterThan(0)
+test('main_screen_has_non_zero_bounding_box', () => {
+  const screen = Machine.local().mainScreen()
+  const bb = screen.boundingBox()
+  expect(bb.right).toBeGreaterThan(bb.left)
+  expect(bb.bottom).toBeGreaterThan(bb.top)
 })
 
-test('dimensions_are_stable_for_same_screen_instance', () => {
-  const screen = Screen.mainScreen()
-  const first = screen.dimensions()
-  const second = screen.dimensions()
+test('bounding_box_is_stable_for_same_screen_instance', () => {
+  const screen = Machine.local().mainScreen()
+  const first = screen.boundingBox()
+  const second = screen.boundingBox()
   expect(first).toEqual(second)
 })
 
-test.skip('mouse_location_screen_returns_non_zero_dimensions', () => {
-  // fromCurrentMouseLocation panics without accessibility permission
+test('all_returns_at_least_one_screen', () => {
+  const screens = Machine.local().screens()
+  expect(screens.length).toBeGreaterThan(0)
+  for (const s of screens) {
+    const bb = s.boundingBox()
+    expect(bb.right).toBeGreaterThan(bb.left)
+    expect(bb.bottom).toBeGreaterThan(bb.top)
+  }
+})
+
+test.skip('mouse_location_screen_returns_non_zero_bounding_box', () => {
+  // screenFromMouse panics without accessibility permission
 })

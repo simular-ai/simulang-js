@@ -1,45 +1,25 @@
-use std::path::Path;
-
 use napi::Error;
 use napi_derive::napi;
 use simulang_rs::Directory as SimulangDirectory;
-use simulang_rs::traits::DirectoryTrait;
 
 use crate::file::File;
 
 #[napi]
-/// Represents a directory handle.
+/// A directory on a [`Machine`]'s filesystem.
+///
+/// Obtain via [`Machine.dir`] or [`Machine.tempDir`]. The handle stays
+/// bound to the machine it came from: paths are meaningful only on that
+/// machine, and all operations run there.
 pub struct Directory {
   inner: std::cell::RefCell<Option<SimulangDirectory>>,
 }
 
 #[napi]
 impl Directory {
-  #[napi(constructor)]
-  /// Creates a handle to a directory at the given path.
-  ///
-  /// If `create_missing` is true, the directory (and all missing
-  /// ancestors) is created when it does not already exist. If false,
-  /// the call fails when the directory does not exist.
-  #[allow(clippy::needless_pass_by_value)]
-  pub fn new(path: String, create_missing: bool) -> napi::Result<Self> {
-    SimulangDirectory::new(Path::new(&path), create_missing)
-      .map(|inner| Self {
-        inner: std::cell::RefCell::new(Some(inner)),
-      })
-      .map_err(Error::from_reason)
-  }
-
-  #[napi(factory)]
-  /// Creates a directory with a unique name inside the system's temp
-  /// directory, returning a handle to it. The directory is **not**
-  /// automatically removed; call `delete()` when done.
-  pub fn temp() -> napi::Result<Self> {
-    SimulangDirectory::temp()
-      .map(|inner| Self {
-        inner: std::cell::RefCell::new(Some(inner)),
-      })
-      .map_err(Error::from_reason)
+  pub(crate) fn new(inner: SimulangDirectory) -> Self {
+    Self {
+      inner: std::cell::RefCell::new(Some(inner)),
+    }
   }
 
   fn with_inner<T>(
@@ -48,7 +28,7 @@ impl Directory {
   ) -> napi::Result<T> {
     let borrow = self.inner.borrow();
     let inner = borrow.as_ref().ok_or_else(|| {
-      Error::from_reason("Directory handle has been consumed (deleted or moved)".to_string())
+      Error::from_reason("Directory handle has been consumed (deleted)".to_string())
     })?;
     f(inner).map_err(Error::from_reason)
   }
@@ -59,101 +39,81 @@ impl Directory {
   ) -> napi::Result<T> {
     let mut borrow = self.inner.borrow_mut();
     let inner = borrow.as_mut().ok_or_else(|| {
-      Error::from_reason("Directory handle has been consumed (deleted or moved)".to_string())
+      Error::from_reason("Directory handle has been consumed (deleted)".to_string())
     })?;
     f(inner).map_err(Error::from_reason)
   }
 
   #[napi]
-  /// Returns the resolved absolute path.
+  /// The directory's path on its machine, as a string.
   pub fn path(&self) -> napi::Result<String> {
-    self.with_inner(|d| Ok(d.path().to_string_lossy().into_owned()))
+    self.with_inner(|d| Ok(d.path()))
   }
 
   #[napi]
-  /// Renames the directory in place (same parent directory)
+  /// Renames the directory in place (same parent directory). `newName`
+  /// must be a single filename component.
   #[allow(clippy::needless_pass_by_value)]
   pub fn rename(&mut self, new_name: String) -> napi::Result<()> {
     self.with_inner_mut(|d| d.rename(&new_name))
   }
 
   #[napi]
-  /// Copies the directory recursively to a new location.
+  /// Copies the directory recursively to `dest` on the same machine,
+  /// returning a handle to the copy. Fails when `dest` already exists.
+  ///
+  /// Local: an absolute `dest` is used as-is. A relative `dest` is joined
+  /// to the `SimularFiles` root (`..` is kept — this is a default base,
+  /// not a sandbox).
+  /// Android: `dest` must be absolute.
   #[allow(clippy::needless_pass_by_value)]
   pub fn copy_to(&self, dest: String) -> napi::Result<Directory> {
-    self
-      .with_inner(|d| d.copy_to(Path::new(&dest)))
-      .map(|inner| Directory {
-        inner: std::cell::RefCell::new(Some(inner)),
-      })
+    self.with_inner(|d| d.copy_to(&dest)).map(Self::new)
   }
 
   #[napi]
-  /// Moves the directory to a new location
-  /// Falls back to copy + delete for cross-device moves.
+  /// Moves the directory to `dest` on the same machine. Fails when
+  /// `dest` already exists. Path resolution as in [`Directory.copyTo`].
   #[allow(clippy::needless_pass_by_value)]
   pub fn move_to(&mut self, dest: String) -> napi::Result<()> {
-    self.with_inner_mut(|d| d.move_to(Path::new(&dest)))
+    self.with_inner_mut(|d| d.move_to(&dest))
   }
 
   #[napi]
-  /// Deletes the directory recursively, invalidating the handle.
+  /// Deletes the directory and everything in it, invalidating the handle.
   pub fn delete(&self) -> napi::Result<()> {
     let inner = self.inner.borrow_mut().take().ok_or_else(|| {
-      Error::from_reason("Directory handle has been consumed (deleted or moved)".to_string())
+      Error::from_reason("Directory handle has been consumed (deleted)".to_string())
     })?;
     inner.delete().map_err(Error::from_reason)
   }
 
   #[napi]
-  /// Returns all files in this directory (non-recursive).
-  ///
-  /// Throws if any individual directory entry fails to read.
+  /// All files in this directory (non-recursive), hidden files included.
   pub fn list_files(&self) -> napi::Result<Vec<File>> {
-    let borrow = self.inner.borrow();
-    let inner = borrow
-      .as_ref()
-      .ok_or_else(|| Error::from_reason("Directory handle has been consumed".to_string()))?;
-    inner
-      .list_files()
-      .map(|r| {
-        r.map(|f| File {
-          inner: std::cell::RefCell::new(Some(f)),
-        })
-        .map_err(Error::from_reason)
-      })
-      .collect::<napi::Result<Vec<_>>>()
+    self
+      .with_inner(SimulangDirectory::list_files)
+      .map(|files| files.into_iter().map(File::new).collect())
   }
 
   #[napi]
-  /// Returns all subdirectories in this directory (non-recursive).
-  ///
-  /// Throws if any individual directory entry fails to read.
+  /// All subdirectories of this directory (non-recursive), hidden ones
+  /// included.
   pub fn list_dirs(&self) -> napi::Result<Vec<Directory>> {
-    let borrow = self.inner.borrow();
-    let inner = borrow
-      .as_ref()
-      .ok_or_else(|| Error::from_reason("Directory handle has been consumed".to_string()))?;
-    inner
-      .list_dirs()
-      .map(|r| {
-        r.map(|d| Directory {
-          inner: std::cell::RefCell::new(Some(d)),
-        })
-        .map_err(Error::from_reason)
-      })
-      .collect::<napi::Result<Vec<_>>>()
+    self
+      .with_inner(SimulangDirectory::list_dirs)
+      .map(|dirs| dirs.into_iter().map(Self::new).collect())
   }
 
   #[napi]
-  /// Returns the directory name (last component of the path).
+  /// The directory name (last component of the path).
   pub fn name(&self) -> napi::Result<String> {
     self.with_inner(|d| Ok(d.name().to_owned()))
   }
 
   #[napi]
-  /// Returns the last modification time of the directory itself as
-  /// milliseconds since the Unix epoch.
+  /// The last modification time of the directory itself as milliseconds
+  /// since the Unix epoch.
   #[allow(clippy::cast_precision_loss)]
   pub fn modified(&self) -> napi::Result<f64> {
     self.with_inner(|d| {
@@ -166,8 +126,8 @@ impl Directory {
   }
 
   #[napi]
-  /// Returns whether the directory is read-only.
+  /// Whether the directory is read-only.
   pub fn is_readonly(&self) -> napi::Result<bool> {
-    self.with_inner(DirectoryTrait::is_readonly)
+    self.with_inner(SimulangDirectory::is_readonly)
   }
 }

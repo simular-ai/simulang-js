@@ -120,6 +120,8 @@ dist
 
 *.node
 /docs
+/docs-repo
+/public-mirror
 .pnp.*
 .yarn/*
 !.yarn/patches

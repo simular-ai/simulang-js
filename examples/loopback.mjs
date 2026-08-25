@@ -5,7 +5,7 @@
 //
 // Requires screen-recording permission on macOS (for loopback capture).
 
-import { AudioOutput, LoopbackSource, SttModel } from '@simular-ai/simulang-js'
+import { Machine, SttModel } from '@simular-ai/simulang-js'
 
 const audioFile = process.argv[2]
 if (!audioFile) {
@@ -14,11 +14,13 @@ if (!audioFile) {
 }
 
 try {
-  const loopback = new LoopbackSource(2, 48000)
+  // Set SIMULANG_ANDROID=<host:port> to drive a connected Android device.
+  const machine = process.env.SIMULANG_ANDROID ? Machine.android(process.env.SIMULANG_ANDROID) : Machine.local()
+
+  const loopback = machine.loopback({ channels: 2, sampleRate: 48000 })
   loopback.start()
 
-  const output = AudioOutput.openDefault()
-  const player = output.createPlayer()
+  const player = machine.player()
 
   console.log(`Playing ${audioFile} to speakers ...`)
   player.appendFile(audioFile)

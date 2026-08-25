@@ -13,7 +13,10 @@
 //   - Screen recording permission (for the screenshots)
 //   - Accessibility permission (for the ax-tree snapshot)
 
-import { AccessibilityTree, AskModel, Screen, ariaRoleToString, screenshotFull } from '@simular-ai/simulang-js'
+import { AccessibilityTree, AskModel, Machine, ariaRoleToString } from '@simular-ai/simulang-js'
+
+// Set SIMULANG_ANDROID=<host:port> to drive a connected Android device.
+const machine = process.env.SIMULANG_ANDROID ? Machine.android(process.env.SIMULANG_ANDROID) : Machine.local()
 
 /**
  * Render an `AccessibilityNodeJs` subtree as an indented Playwright-style
@@ -49,15 +52,17 @@ const pong = model.ask('Reply with just the word PONG.')
 console.log(`[prompt only] -> ${JSON.stringify(pong)}\n`)
 
 // 2. Text-only — ground the model on a real accessibility-tree snapshot of
-//    whatever window is currently in the foreground.
-const tree = AccessibilityTree.fromForeground()
+//    whatever application is currently in the foreground.
+const tree = AccessibilityTree.fromInstance(machine.foregroundApp())
 const axSnapshot = snapshotToString(tree.snapshot())
 console.log(`Snapshotted foreground window: ${JSON.stringify(tree.windowTitle)}`)
 const summary = model.ask('Summarize this UI in one sentence and list any buttons that look clickable.', axSnapshot)
 console.log(`[text only]\n${summary}\n`)
 
-// 3. Image-only — full screenshot of the main display.
-const shotA = screenshotFull(true, Screen.mainScreen())
+// 3. Image-only — full screenshot of the main display. Resolve the screen
+//    handle once so both captures below are pinned to the same display.
+const screen = machine.mainScreen()
+const shotA = screen.screenshot(true)
 shotA.shrink(1024, 1024)
 shotA.compress(80)
 const description = model.ask('Describe what is on screen in one sentence.', null, [shotA])
@@ -65,7 +70,7 @@ console.log(`[image only]\n${description}\n`)
 
 // 4. Text + multiple images — capture a second screenshot back-to-back and
 //    ask the model to compare them with the ax-tree snapshot for context.
-const shotB = screenshotFull(true, Screen.mainScreen())
+const shotB = screen.screenshot(true)
 shotB.shrink(1024, 1024)
 shotB.compress(80)
 const diff = model.ask(

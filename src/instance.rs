@@ -1,14 +1,16 @@
 use napi::Error;
 use napi_derive::napi;
 use simulang_rs::Instance as SimulangInstance;
-use simulang_rs::traits::{AXNodeSynthetic, InstanceTrait};
+use simulang_rs::traits::AXNodeSynthetic;
 
 use crate::accessibility_node::AccessibilityNode;
 use crate::ax_tree::TraversalOrder;
 use crate::window::Window;
 
 #[napi]
-/// Represents an opened application instance.
+/// A running application on a machine.
+///
+/// Obtain via [`App.open`] or [`Machine.foregroundApp`].
 pub struct Instance {
   pub(crate) inner: SimulangInstance,
 }
@@ -17,10 +19,33 @@ pub struct Instance {
 impl Instance {
   #[napi(getter)]
   #[must_use]
-  /// Get the process ID of the opened application (returns 0 when unknown).
-  pub fn pid(&self) -> u32 {
-    #[allow(clippy::cast_sign_loss)]
-    self.inner.pid().map_or(0, |p| p as u32)
+  /// A process ID of the instance, if known. Diagnostic only.
+  ///
+  /// On macOS this is the stored launch PID (always set). On Linux it is
+  /// the launch PID while that process is alive, else the owner of a
+  /// window attributed to the app by `WM_CLASS` (a single-instance app
+  /// handed the launch off to an already-running process). On Windows
+  /// instances are app-scoped and store no PID; the value is resolved
+  /// lazily — the owner PID of the app's first window, else a matching
+  /// process, else `null` (e.g. while the app has no window yet). Which
+  /// process serves a multi-process app is unspecified.
+  pub fn pid(&self) -> Option<i32> {
+    self.inner.pid()
+  }
+
+  #[napi]
+  /// Root accessibility node of this application.
+  ///
+  /// On macOS this is the application element (every window plus the app
+  /// menu bar). On Windows / Linux it is the process accessibility root.
+  /// On Android it is the current screen root — the instance must be in
+  /// the foreground.
+  pub fn root(&self) -> napi::Result<AccessibilityNode> {
+    self
+      .inner
+      .root()
+      .map(AccessibilityNode::new)
+      .map_err(Error::from_reason)
   }
 
   #[napi]
@@ -36,7 +61,7 @@ impl Instance {
   }
 
   #[napi]
-  /// Returns true if the instance has the focus.
+  /// Whether the instance has focus.
   pub fn is_focused(&self) -> napi::Result<bool> {
     self.inner.is_focused().map_err(Error::from_reason)
   }
@@ -49,19 +74,21 @@ impl Instance {
 
   #[napi]
   #[must_use]
-  /// Returns all visible top-level windows belonging to this instance.
+  /// All visible top-level windows belonging to this instance (Android:
+  /// one window per live task of the app).
   pub fn windows(&self) -> Vec<Window> {
     self
       .inner
       .windows()
       .into_iter()
-      .filter_map(|w| Window::try_from(w).ok())
+      .map(|inner| Window { inner })
       .collect()
   }
 
   #[napi]
   #[doc(alias = "page_content")]
   #[doc(alias = "application_content")]
+  /// Text content of the instance's UI (aria-snapshot style).
   pub fn content(&self) -> napi::Result<String> {
     self.inner.content().map_err(Error::from_reason)
   }
@@ -73,9 +100,9 @@ impl Instance {
   }
 
   #[napi]
-  /// Enables the accessibility tree for the instance.
-  ///
-  /// This also works when the application is already running.
+  /// Enables the accessibility tree for the instance. Also works when the
+  /// application is already running. No-op on Android (uiautomator is
+  /// always available).
   pub fn enable_accessibility(&mut self) -> napi::Result<()> {
     self
       .inner
@@ -84,11 +111,12 @@ impl Instance {
   }
 
   #[napi]
-  /// Disable the accessibility tree for the instance.
+  /// Disables the accessibility tree for the instance to save resources.
+  /// No-op on Android.
   ///
   /// Creating the accessibility tree is resource-intensive, so many
   /// applications disable it by default. After we are done controlling the
-  /// instance, we should disable the accessibility tree to save resources.
+  /// instance, we should disable the accessibility tree again.
   pub fn disable_accessibility(&mut self) -> napi::Result<()> {
     self
       .inner
@@ -162,10 +190,4 @@ impl Instance {
       .map_err(Error::from_reason)?;
     Ok(AccessibilityNode::from_nodes(matches))
   }
-}
-
-#[napi]
-/// Enables the accessibility tree for the frontmost application.
-pub fn enable_accessibility_for_frontmost_app() -> napi::Result<()> {
-  simulang_rs::enable_accessibility_for_frontmost_app().map_err(Error::from_reason)
 }

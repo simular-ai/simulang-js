@@ -2,29 +2,26 @@
 // Optionally pass coordinates: node examples/element_at_point.mjs 400 300
 //
 // Demonstrates the element-picker primitives:
-//   1. AccessibilityNode.fromPoint(x, y) — hit-test the element under a
-//      screen coordinate (used per-poll to draw a hover highlight). The
+//   1. Machine.nodeAtPoint(x, y) — hit-test the element under a screen
+//      coordinate (used per-poll to draw a hover highlight). The
 //      returned node is already actionable (activate / setValue / …).
 //   2. AccessibilityTree.findByDescription(desc) — the picker's grounding
 //      check: is this element's overallDescription unique in the window?
 //      `isUnique` is just `matches.length === 1`.
 
-import {
-  AccessibilityNode,
-  AccessibilityTree,
-  MouseController,
-  Window,
-  ariaRoleToString,
-} from '@simular-ai/simulang-js'
+import { AccessibilityTree, Machine, ariaRoleToString } from '@simular-ai/simulang-js'
+
+// Set SIMULANG_ANDROID=<host:port> to drive a connected Android device.
+const machine = process.env.SIMULANG_ANDROID ? Machine.android(process.env.SIMULANG_ANDROID) : Machine.local()
 
 // Coordinates: explicit args, or the live cursor location.
 const args = process.argv.slice(2)
-const [x, y] = args.length >= 2 ? [Number(args[0]), Number(args[1])] : new MouseController().location()
+const [x, y] = args.length >= 2 ? [Number(args[0]), Number(args[1])] : machine.mouseLocation()
 
 // 1. Hit-test — cheap, resolves a single element. Returns null when the
 //    point has no accessible element (empty desktop, gaps, etc.).
 const t0 = Date.now()
-const node = AccessibilityNode.fromPoint(x, y)
+const node = machine.nodeAtPoint(x, y)
 if (!node) {
   console.log(`=== No accessible element at (${x}, ${y}) (${Date.now() - t0}ms) ===`)
   process.exit(0)
@@ -45,7 +42,7 @@ console.log('actions:    ', node.supportedActions())
 //    especially on macOS, where every attribute read is a live AX IPC.
 console.log('\n=== findByDescription on foreground window (app-scoped) ===')
 const t1 = Date.now()
-const tree = AccessibilityTree.fromForeground()
+const tree = AccessibilityTree.fromInstance(machine.foregroundApp())
 const matches = tree.findByDescription(description)
 console.log(`matches:  ${matches.length} (in ${Date.now() - t1}ms)`)
 console.log(`isUnique: ${matches.length === 1}`)
@@ -62,7 +59,7 @@ if (matches.length > 1) {
 //    should use so a description shared across other windows of the same app
 //    doesn't count against it.
 console.log('\n=== findByDescription on hovered window (window-scoped) ===')
-const window = Window.fromPoint(x, y)
+const window = machine.windowAtPoint(x, y)
 if (!window) {
   console.log(`No window under (${x}, ${y}).`)
 } else {

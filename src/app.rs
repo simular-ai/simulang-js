@@ -1,14 +1,16 @@
 use napi::Error;
 use napi_derive::napi;
 use simulang_rs::App as SimulangApp;
-use simulang_rs::traits::{
-  AppTrait, FocusPolicy as SimulangFocusPolicy, Visibility as SimulangVisibility,
-};
+use simulang_rs::traits::{FocusPolicy as SimulangFocusPolicy, Visibility as SimulangVisibility};
 
 use crate::instance::Instance;
 
 #[napi]
-/// Represents an application that can be opened.
+/// An installed application on a machine, ready to be opened.
+///
+/// Obtain via [`Machine.app`], [`Machine.fuzzyApp`], [`Machine.apps`], or
+/// [`Machine.defaultBrowser`]. The handle stays bound to the machine it
+/// came from.
 pub struct App {
   pub(crate) inner: SimulangApp,
 }
@@ -52,59 +54,41 @@ impl From<Visibility> for SimulangVisibility {
 
 #[napi]
 impl App {
-  #[napi(factory)]
-  #[allow(clippy::needless_pass_by_value)]
-  /// Get the app by exact name. No fuzzy search is performed.
-  pub fn exact_name(name: String) -> napi::Result<Self> {
-    SimulangApp::exact_name(&name)
-      .map(|inner| Self { inner })
-      .map_err(Error::from_reason)
-  }
-
   #[napi(getter)]
   #[must_use]
-  /// Returns the canonical app name used for fuzzy matching.
+  /// Returns the canonical app name used for fuzzy matching (Android: the
+  /// package name).
   pub fn canonical_name(&self) -> Option<String> {
     self.inner.canonical_name().map(ToOwned::to_owned)
   }
 
   #[napi(getter)]
   #[must_use]
-  /// Returns the launch target used to open the app (name or path).
+  /// Returns the launch target used to open the app: a name or path
+  /// locally, the package name on Android.
   pub fn launch_target(&self) -> Option<String> {
     self.inner.launch_target().map(ToOwned::to_owned)
   }
 
-  #[napi(factory)]
-  /// Returns a handle to the system's default browser.
-  pub fn default_browser() -> napi::Result<Self> {
-    SimulangApp::default_browser()
-      .map(|inner| Self { inner })
-      .map_err(Error::from_reason)
-  }
-
   #[napi]
-  #[allow(clippy::needless_pass_by_value)]
-  /// Checks if the app exists.
-  pub fn exists(app: String) -> napi::Result<bool> {
-    SimulangApp::exists(&app).map_err(Error::from_reason)
-  }
-
-  #[napi]
-  /// Opens or switches to an application. If a URL is provided, the URL is
-  /// opened with the specified app.
+  /// Opens or switches to the application. If a URL is provided, the URL
+  /// is opened with this app.
   ///
   /// `focus_policy` controls whether the app is allowed to become
   /// active/frontmost. Some applications (e.g. Chrome, Notes) ignore this
-  /// request and steal focus regardless.
+  /// request and steal focus regardless. `visibility` controls whether
+  /// the app is launched hidden or shown; some applications (e.g. Chrome
+  /// and other Chromium/Electron apps) ignore the hidden flag and launch
+  /// visibly. Android's activity model always launches visible and
+  /// focused.
   ///
-  /// `visibility` controls whether the app is launched hidden or shown.
-  /// Some applications (e.g. Chrome and other Chromium/Electron apps) ignore
-  /// the hidden flag and launch visibly, potentially stealing focus. In that
-  /// case the app is hidden explicitly after launch.
-  ///
-  /// When `wait_for_load_complete` is true, this blocks for a short, fixed
-  /// delay to allow the app or URL to become responsive before returning.
+  /// When `wait_for_load_complete` is true, blocks until the instance
+  /// has a window (or the platform reports launch finished), up to
+  /// twenty seconds. Desktop timeouts are logged; Android treats them as
+  /// errors. Pass `false` for apps that never show a window. If the app
+  /// is already running, its existing windows satisfy the wait
+  /// immediately — this does not wait for whatever window or tab the
+  /// call may add.
   pub fn open(
     &self,
     url: Option<String>,

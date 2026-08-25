@@ -1,10 +1,13 @@
 // Run: node examples/system.mjs
 // This example opens a URL in the default browser.
 
-import { App, FocusPolicy, Visibility } from '@simular-ai/simulang-js'
+import { Machine, FocusPolicy, Visibility } from '@simular-ai/simulang-js'
+
+// Set SIMULANG_ANDROID=<host:port> to drive a connected Android device.
+const machine = process.env.SIMULANG_ANDROID ? Machine.android(process.env.SIMULANG_ANDROID) : Machine.local()
 
 // Open a URL in the default browser.
-App.defaultBrowser().open('https://example.com', FocusPolicy.Steal, Visibility.Show, true)
+machine.defaultBrowser().open('https://example.com', FocusPolicy.Steal, Visibility.Show, true)
 
-// Open a specific app (macOS example).
-// App.exactName('Safari').open(null, FocusPolicy.Steal, Visibility.Show, false)
+// Open a specific app by exact name (macOS example).
+// machine.app('Safari').open(null, FocusPolicy.Steal, Visibility.Show, false)

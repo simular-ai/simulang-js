@@ -2,7 +2,7 @@
 
 ![CI](https://github.com/simular-ai/simulang-js/workflows/CI/badge.svg)
 
-Node.js bindings for [`simulang-rs`](https://github.com/simular-ai/simulang-rs), a Rust crate published by [Simular](https://simular.ai), built with [`napi-rs`](https://napi.rs/). Provides high-level primitives for desktop automation — keyboard and mouse input, screenshots, clipboard access, audio capture, accessibility-tree inspection, and more — exposed through idiomatic JavaScript. Ships TypeScript definitions auto-generated from the Rust source, so the types always match runtime behavior.
+Node.js bindings for [`simulang-rs`](https://github.com/simular-ai/simulang-rs), a Rust crate published by [Simular](https://simular.ai), built with [`napi-rs`](https://napi.rs/). Provides high-level primitives for automating desktops and Android devices — keyboard and mouse input, screenshots, clipboard access, audio capture, accessibility-tree inspection, and more — exposed through idiomatic JavaScript behind one unified `Machine` API (`Machine.local()` for the desktop this process runs on, `Machine.android(endpoint)` for a device over adb). Ships TypeScript definitions auto-generated from the Rust source, so the types always match runtime behavior.
 
 ## Install
 
@@ -22,7 +22,7 @@ Node.js **20 or newer** is required. If your platform isn't covered, see [Buildi
 
 ### Optional — install the log viewer
 
-The [`log-window.mjs`](./examples/log-window.mjs) example uses [`@simular-ai/simulang-log-viewer`](https://github.com/simular-ai/simulang-log-viewer), which is declared as an **optional peer dependency** and **not** installed by default. Install it only if you want to run that example or use the same pattern in your own code:
+The [`log-window.mjs`](https://github.com/simular-ai/simulang-js/blob/main/examples/log-window.mjs) example uses [`@simular-ai/simulang-log-viewer`](https://github.com/simular-ai/simulang-log-viewer), which is declared as an **optional peer dependency** and **not** installed by default. Install it only if you want to run that example or use the same pattern in your own code:
 
 ```bash
 npm install @simular-ai/simulang-log-viewer
@@ -30,7 +30,7 @@ npm install @simular-ai/simulang-log-viewer
 
 ## Usage
 
-Try the included [`google_search.mjs`](./examples/google_search.mjs) example — it opens Google in Chrome, enables the accessibility tree, takes a screenshot, and displays it:
+Try the included [`google_search.mjs`](https://github.com/simular-ai/simulang-js/blob/main/examples/google_search.mjs) example — it opens Google in Chrome, enables the accessibility tree, takes a screenshot, and displays it:
 
 ```bash
 # With the simulang CLI (no local install needed):
@@ -47,7 +47,7 @@ Browse the [API reference](https://docs.simular.ai/simulang-js/api/latest/) for 
 
 ## Using with Claude Code
 
-This package ships a short [`CLAUDE.md`](./CLAUDE.md) inside the npm tarball that points Claude Code at `index.d.ts` as the source of truth for the API and adds a few cross-cutting notes that types alone can't express (lifetime rules, coordinate system, etc.). Wire it into your project's `CLAUDE.md` with:
+This package ships a short [`CLAUDE.md`](https://github.com/simular-ai/simulang-js/blob/main/CLAUDE.md) inside the npm tarball that points Claude Code at `index.d.ts` as the source of truth for the API and adds a few cross-cutting notes that types alone can't express (lifetime rules, coordinate system, etc.). Wire it into your project's `CLAUDE.md` with:
 
 ```bash
 npx simulang-init-claude          # appends to <project>/CLAUDE.md (creates it if missing)
@@ -76,4 +76,4 @@ simulang run --simulang-js=/path/to/simulang-js my-script.js
 
 ## Changelog
 
-See [`CHANGELOG.md`](./CHANGELOG.md) for version history and unreleased API changes.
+See [`CHANGELOG.md`](https://github.com/simular-ai/simulang-js/blob/main/CHANGELOG.md) for version history and unreleased API changes.

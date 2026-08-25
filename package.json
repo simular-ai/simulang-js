@@ -1,6 +1,6 @@
 {
   "name": "@simular-ai/simulang-js",
-  "version": "8.1.0",
+  "version": "12.0.3",
   "description": "Node.js bindings for simulang-rs",
   "main": "wrapped.js",
   "types": "./wrapped.d.ts",
@@ -8,6 +8,10 @@
     ".": {
       "types": "./wrapped.d.ts",
       "default": "./wrapped.js"
+    },
+    "./sai": {
+      "types": "./sai.d.ts",
+      "default": "./sai.js"
     }
   },
   "bin": {
@@ -34,6 +38,8 @@
   "files": [
     "index.d.ts",
     "index.js",
+    "sai.d.ts",
+    "sai.js",
     "wrapped.d.ts",
     "wrapped.js",
     "CHANGELOG.md",
@@ -66,8 +72,8 @@
     "bench": "node --import @oxc-node/core/register benchmark/bench.ts",
     "build": "napi build --platform --release",
     "build:debug": "napi build --platform",
-    "docs": "typedoc --entryPoints index.d.ts --out docs --readme README.md --name '@simular-ai/simulang-js' --includeVersion",
-    "docs:mintlify": "typedoc --options typedoc.mintlify.json",
+    "docs": "typedoc --entryPoints index.d.ts --out docs --readme README.md --name '@simular-ai/simulang-js' --includeVersion --gitRevision main --sourceLinkTemplate 'https://github.com/simular-ai/simulang-js/blob/{gitRevision}/{path}#L{line}'",
+    "docs:mintlify": "npx -y -p typedoc@0.27.9 -p typescript@5.8.3 typedoc --options typedoc.mintlify.mjs",
     "format": "run-p format:prettier format:rs format:toml",
     "format:prettier": "prettier . -w",
     "format:toml": "taplo format",
@@ -82,24 +88,24 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@napi-rs/cli": "^3.7.2",
+    "@napi-rs/cli": "^3.8.2",
     "@oxc-node/core": "^0.1.0",
     "@taplo/cli": "^0.7.0",
-    "@types/node": "^25.9.3",
+    "@types/node": "^26.1.1",
     "husky": "^9.1.7",
-    "lint-staged": "^17.0.7",
+    "lint-staged": "^17.3.0",
     "npm-run-all2": "^9.0.2",
-    "oxlint": "^1.70.0",
-    "prettier": "^3.8.4",
+    "oxlint": "^1.77.0",
+    "prettier": "^3.9.6",
     "tinybench": "^6.0.0",
-    "typedoc": "^0.28.19",
+    "typedoc": "^0.28.20",
     "typedoc-plugin-frontmatter": "^1.3.1",
     "typedoc-plugin-markdown": "^4.12.0",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.9"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   },
   "lint-staged": {
-    "*.@(js|ts|tsx)": [
+    "*.@(js|mjs|cjs|ts|tsx)": [
       "oxlint --fix"
     ],
     "*.@(js|ts|tsx|yml|yaml|md|json)": [

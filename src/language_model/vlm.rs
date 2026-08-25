@@ -15,8 +15,8 @@ pub struct GroundingModel {
 impl GroundingModel {
   #[napi(factory)]
   /// First VLM model advertised by the first VLM provider in the loaded
-  /// config. Throws if no provider in the loaded config advertises a VLM
-  /// service.
+  /// configuration whose credentials are currently available. Providers with
+  /// missing credentials are skipped; throws if no provider remains available.
   #[allow(clippy::should_implement_trait)]
   pub fn default() -> napi::Result<Self> {
     simulang_rs::language_model::GroundingModel::default()
@@ -26,8 +26,8 @@ impl GroundingModel {
 
   #[napi(factory)]
   /// Resolve a model alias against the loaded config (e.g. `"ui_venus_30b"`,
-  /// `"ui_tars_7b"`, or any alias declared by a user provider). Throws if
-  /// the alias is unknown.
+  /// `"ui_tars_7b"`, `"openrouter_claude_opus"`, or any alias declared by a
+  /// user provider). Throws if the alias is unknown.
   #[allow(clippy::needless_pass_by_value)]
   pub fn by_alias(alias: String) -> napi::Result<Self> {
     simulang_rs::language_model::GroundingModel::by_alias(&alias)
@@ -93,7 +93,7 @@ impl GroundingModel {
   /// * If `target` is an `Image`, coordinates are in **image-space**.
   /// * If `target` is a `Screenshot`, coordinates are in the **global desktop
   ///   space** in OS-native units (may be negative on multi-monitor setups;
-  ///   see [`MouseController`]).
+  ///   see [`Machine`]).
   ///
   /// Equivalent to `target.ground(model, concept)`.
   pub fn ground(

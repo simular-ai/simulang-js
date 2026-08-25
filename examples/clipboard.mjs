@@ -1,29 +1,30 @@
 // Run: node examples/clipboard.mjs
-// This example reads and writes the clipboard.
+// This example reads and writes the local machine's clipboard.
 
-import { Clipboard } from '@simular-ai/simulang-js'
+import { Machine } from '@simular-ai/simulang-js'
 
 console.log('Waiting three seconds...')
 await new Promise((resolve) => setTimeout(resolve, 3000))
 
-const clipboard = new Clipboard()
+// Set SIMULANG_ANDROID=<host:port> to drive a connected Android device.
+const machine = process.env.SIMULANG_ANDROID ? Machine.android(process.env.SIMULANG_ANDROID) : Machine.local()
 
-const previous = clipboard.setString('Hello from simulang-js')
-const current = clipboard.getString()
+const previous = machine.setClipboardString('Hello from simulang-js').text
+const current = machine.getClipboardString()
 
 console.log('Previous clipboard:', previous)
 console.log('Current clipboard:', current)
 
 // Paste text by simulating Cmd/Ctrl+V.
-clipboard.pasteText('Pasted from simulang-js')
+machine.pasteText('Pasted from simulang-js')
 
-clipboard.clear()
+machine.clearClipboard()
 
-const afterClear = clipboard.getString()
+const afterClear = machine.getClipboardString()
 console.log('After clear:', afterClear)
 
 // Restore previous clipboard content if it existed.
 if (previous !== null) {
   console.log('Restored previous clipboard:')
-  clipboard.setString(previous)
+  machine.setClipboardString(previous)
 }

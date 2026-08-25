@@ -21,13 +21,17 @@ allow = [
   "Ubuntu-font-1.0",                # Bundled Ubuntu fonts in eframe/egui.
 ]
 private = { ignore = true } # Workspace crates are publish = false; don't license-check our own crates.
+unused-allowed-license = "allow"
 
 [advisories]
 yanked = "deny"
 
 [bans]
-allow-wildcard-paths = true   # Permit path/git deps in private crates.
-wildcards            = "deny"
+allow-wildcard-paths = true # Permit path/git deps in private crates.
+# Duplicate versions are near-entirely from transitive/dev deps we don't
+# control
+multiple-versions = "allow"
+wildcards         = "deny"
 
 [sources]
 allow-git        = ["ssh://git@github.com/simular-ai/simulang-rs-internal"]

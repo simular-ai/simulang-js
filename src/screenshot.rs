@@ -4,11 +4,11 @@ use napi::Error;
 use napi_derive::napi;
 use simulang_rs::Screenshot as SimulangScreenshot;
 use simulang_rs::traits::{
-  ImageTrait, ScreenshotCoordinateType as SimulangScreenshotCoordinateType, ScreenshotTrait,
+  ImageTrait, ScreenshotCoordinateType as SimulangScreenshotCoordinateType,
 };
 
+use crate::ax_tree::BoundingBox;
 use crate::language_model::vlm::GroundingModel;
-use crate::screen::Screen;
 
 #[napi]
 /// Represents a screenshot capture.
@@ -73,18 +73,21 @@ impl Screenshot {
   }
 
   #[napi]
-  /// Paints a filled disc on the image. Useful for visualizing point
-  /// coordinates returned from grounding, layout queries, etc.
+  /// Paints a filled disc on the screenshot. Useful for visualizing point
+  /// coordinates returned from grounding, element / layout queries, etc.
   ///
-  /// `x` / `y` are image-pixel coordinates of the disc's centre. `radius`
-  /// is the disc radius in pixels (`0` paints a single pixel at the
-  /// centre). `(red, green, blue)` is the fill color; alpha is always 255
-  /// (opaque replacement of the underlying pixel).
+  /// `x` / `y` are **global desktop** coordinates (the same space
+  /// `Screenshot.ground` returns and [`Machine.moveMouse`] consumes), which are
+  /// converted to image pixels — inverting the capture offset and any
+  /// resampling — before drawing. So a `ground(...)` result or an element's
+  /// `boundingBox()` corner can be passed straight in. `radius` is the disc
+  /// radius in pixels (`0` paints a single pixel at the centre).
+  /// `(red, green, blue)` is the fill color; alpha is always 255 (opaque
+  /// replacement of the underlying pixel).
   ///
-  /// Coordinates that fall outside the image bounds (negative, or past the
-  /// width / height) silently produce no pixel, so the helper is safe to
-  /// call with the raw output of a grounding model even at the edge of the
-  /// captured rect.
+  /// Coordinates that map outside the image bounds silently produce no pixel,
+  /// so the helper is safe to call even for points that fall outside the
+  /// captured region.
   pub fn draw_dot(
     &mut self,
     x: i32,
@@ -97,6 +100,34 @@ impl Screenshot {
     self
       .inner
       .draw_dot(x, y, radius, [red, green, blue])
+      .map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Draws the outline of the axis-aligned rectangle `bounds` on the
+  /// screenshot. Useful for visualizing bounding boxes returned from grounding,
+  /// element / window `boundingBox()` queries, ground-truth annotations, etc.
+  ///
+  /// `bounds` is in **global desktop** coordinates (the same space element /
+  /// window `boundingBox()` and grounding results use); its corners are
+  /// converted to image pixels — inverting the capture offset and any
+  /// resampling — before drawing, so an element's `boundingBox()` can be passed
+  /// straight in. It covers `[left, right) × [top, bottom)` (`right` / `bottom`
+  /// exclusive). The border is `thickness` pixels wide, drawn inset, in the
+  /// opaque RGB `(red, green, blue)` color. Pixels that map outside the image
+  /// bounds are silently clipped. Throws when `thickness` is `0` or `bounds` is
+  /// degenerate (`right <= left` or `bottom <= top`).
+  pub fn draw_box(
+    &mut self,
+    bounds: BoundingBox,
+    thickness: u16,
+    red: u8,
+    green: u8,
+    blue: u8,
+  ) -> napi::Result<()> {
+    self
+      .inner
+      .draw_box(bounds.try_into()?, thickness, [red, green, blue])
       .map_err(Error::from_reason)
   }
 
@@ -134,21 +165,27 @@ impl Screenshot {
   }
 
   #[napi]
-  #[must_use]
-  /// Returns the image encoded as a base64 data URL.
-  ///
-  /// The result includes the MIME prefix, for example
-  /// `data:image/png;base64,...` or `data:image/jpeg;base64,...`.
-  pub fn base64(&self) -> String {
-    self.inner.base64()
+  /// Returns the image encoded as raw base64, without a MIME prefix.
+  pub fn base64(&self) -> napi::Result<String> {
+    self.inner.base64().map_err(Error::from_reason)
   }
 
   #[napi]
-  /// Converts a point in this screenshot to global desktop coordinates.
+  /// Returns the image encoded as a base64 data URL.
+  ///
+  /// The result includes the MIME prefix, for example
+  /// `data:image/png;base64,...`, `data:image/jpeg;base64,...`,
+  /// `data:image/gif;base64,...`, or `data:image/webp;base64,...`.
+  pub fn base64_data_url(&self) -> napi::Result<String> {
+    self.inner.base64_data_url().map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Converts a point in this screenshot to the machine's coordinate space.
   ///
   /// The result is in the library's canonical coordinate space (OS-native
-  /// units; see [`MouseController`]), so it can be fed straight to
-  /// `MouseController.moveMouse` without conversion.
+  /// units; see [`Machine`]), so it can be fed straight to
+  /// [`Machine.moveMouse`] without conversion.
   ///
   /// Screenshots may represent only part of a display, and the captured
   /// region may have been resampled to a different image size, so this
@@ -157,7 +194,7 @@ impl Screenshot {
   ///
   /// See `ScreenshotCoordinateType` for how `coord_type` affects
   /// interpretation of `(x, y)`.
-  pub fn to_global_desktop_coordinates(
+  pub fn to_machine_coordinates(
     &self,
     x: u32,
     y: u32,
@@ -169,7 +206,7 @@ impl Screenshot {
     };
     self
       .inner
-      .to_global_desktop_coordinates(x, y, coord_type)
+      .to_machine_coordinates(x, y, coord_type)
       .map_err(Error::from_reason)
   }
 
@@ -178,7 +215,7 @@ impl Screenshot {
   /// Locate `concept` on this screenshot using the given grounding model and
   /// return the corresponding **global desktop coordinates** `[x, y]` in
   /// OS-native units (may be negative on multi-monitor setups; see
-  /// [`MouseController`]). The output can be fed
+  /// [`Machine`]). The output can be fed
   /// directly to primitives that expect global screen coordinates.
   ///
   /// Equivalent to `model.ground(screenshot, concept)`.
@@ -188,26 +225,4 @@ impl Screenshot {
       .ground(&self.inner, &concept)
       .map_err(|e| Error::from_reason(e.to_string()))
   }
-}
-
-#[napi]
-/// Takes the screenshot of the entire selected screen
-pub fn screenshot_full(hide_cursor: bool, screen: &Screen) -> napi::Result<Screenshot> {
-  SimulangScreenshot::screenshot_full(hide_cursor, &screen.inner)
-    .map(|inner| Screenshot { inner })
-    .map_err(Error::from_reason)
-}
-
-#[napi]
-/// Takes the screenshot of a cropped region of the workspace.
-pub fn screenshot_cropped(
-  x: i32,
-  y: i32,
-  width: u16,
-  height: u16,
-  hide_cursor: bool,
-) -> napi::Result<Screenshot> {
-  SimulangScreenshot::screenshot_cropped(x, y, width, height, hide_cursor)
-    .map(|inner| Screenshot { inner })
-    .map_err(Error::from_reason)
 }

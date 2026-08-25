@@ -3,46 +3,46 @@ use napi_derive::napi;
 
 use crate::language_model::stt::SttModel;
 
-#[napi]
-/// A loopback capture source that records system audio output (what
-/// the user hears through their speakers or headphones).
+#[napi(object)]
+#[derive(Clone, Copy)]
+/// A concrete PCM audio stream configuration.
 ///
-/// Loopback capture is inherently platform-specific: macOS uses
-/// `ScreenCaptureKit` (requires screen-recording permission), Windows
-/// uses WASAPI loopback mode, and Linux uses PulseAudio/PipeWire
-/// monitor sources.
-pub struct LoopbackSource {
-  inner: simulang_rs::LoopbackSource,
+/// All audio crossing the API uses interleaved `f32` samples in
+/// `[-1.0, 1.0]`. This object captures the two remaining degrees of
+/// freedom (sample rate and channel count) so callers can request a
+/// specific configuration when constructing sources or sinks.
+pub struct AudioFormat {
+  /// Samples per second per channel (e.g. 44100, 48000).
+  pub sample_rate: u32,
+  /// Number of interleaved channels (1 = mono, 2 = stereo).
+  pub channels: u16,
+}
+
+impl From<AudioFormat> for simulang_rs::traits::AudioFormat {
+  fn from(format: AudioFormat) -> Self {
+    Self {
+      sample_rate: format.sample_rate,
+      channels: format.channels,
+    }
+  }
 }
 
 #[napi]
-impl LoopbackSource {
-  #[napi(constructor)]
-  /// Opens a loopback capture stream for the given format.
-  ///
-  /// `channels` is the number of interleaved channels (1 = mono,
-  /// 2 = stereo). `sample_rate` is samples per second per channel
-  /// (e.g. 44100, 48000).
-  ///
-  /// The stream does not begin producing samples until `start()` is
-  /// called.
-  pub fn new(channels: u16, sample_rate: u32) -> napi::Result<Self> {
-    use simulang_rs::traits::LoopbackSourceTrait as _;
+/// Loopback capture of a [`Machine`]'s audio output (what its speakers
+/// are playing).
+///
+/// Obtain via [`Machine.loopback`]. Call `start()` before capturing with
+/// `record()` or `drain()`; samples are interleaved `f32` in the
+/// requested `AudioFormat`.
+pub struct Loopback {
+  pub(crate) inner: simulang_rs::Loopback,
+}
 
-    let format = simulang_rs::traits::AudioFormat {
-      sample_rate,
-      channels,
-    };
-    simulang_rs::LoopbackSource::new(format)
-      .map(|inner| Self { inner })
-      .map_err(Error::from_reason)
-  }
-
+#[napi]
+impl Loopback {
   #[napi]
-  /// Begin capturing system audio. Must be called before `record()`
-  /// or `drain()`.
+  /// Begin capturing. Must be called before `record()` or `drain()`.
   pub fn start(&mut self) -> napi::Result<()> {
-    use simulang_rs::traits::LoopbackSourceTrait as _;
     self.inner.start().map_err(Error::from_reason)
   }
 
@@ -50,7 +50,6 @@ impl LoopbackSource {
   /// Stop capturing. May be started again with `start()`. After
   /// stopping, call `drain()` to collect remaining buffered samples.
   pub fn stop(&mut self) -> napi::Result<()> {
-    use simulang_rs::traits::LoopbackSourceTrait as _;
     self.inner.stop().map_err(Error::from_reason)
   }
 
@@ -104,6 +103,51 @@ impl LoopbackSource {
     Ok(SamplesBuffer {
       inner: simulang_rs::rodio::buffer::SamplesBuffer::new(channels, sample_rate, samples),
     })
+  }
+}
+
+#[napi]
+/// A [`Machine`]'s default microphone, recording in a fixed
+/// `AudioFormat`.
+///
+/// Obtain via [`Machine.microphone`]. The stream records from the moment
+/// it is opened and stops when the handle is garbage-collected; collect
+/// fixed-size chunks with `record()`.
+pub struct Microphone {
+  pub(crate) inner: simulang_rs::Microphone,
+}
+
+#[napi]
+impl Microphone {
+  #[napi(getter)]
+  #[must_use]
+  /// Number of interleaved channels (1 = mono, 2 = stereo).
+  pub fn channels(&self) -> u16 {
+    use simulang_rs::rodio::Source as _;
+    self.inner.channels().get()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  /// Samples per second per channel (e.g. 44100, 48000).
+  pub fn sample_rate(&self) -> u32 {
+    use simulang_rs::rodio::Source as _;
+    self.inner.sample_rate().get()
+  }
+
+  #[napi]
+  /// Blocks for exactly `duration_ms` and returns the captured audio as
+  /// a `SamplesBuffer`. Call repeatedly to stream fixed-size chunks.
+  pub fn record(&mut self, duration_ms: u32) -> napi::Result<SamplesBuffer> {
+    use simulang_rs::SourceExt as _;
+
+    let duration = std::time::Duration::from_millis(u64::from(duration_ms));
+    self
+      .inner
+      .sample_chunks(duration)
+      .next()
+      .map(|inner| SamplesBuffer { inner })
+      .ok_or_else(|| Error::from_reason("no audio samples collected"))
   }
 }
 

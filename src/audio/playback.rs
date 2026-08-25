@@ -4,65 +4,28 @@ use napi_derive::napi;
 use crate::audio::source::SamplesBuffer;
 
 #[napi]
-/// Handle to an open audio output device. Must be kept alive for
-/// playback to continue — when dropped all associated `Player`s stop
-/// producing sound.
-pub struct AudioOutput {
-  inner: simulang_rs::rodio::MixerDeviceSink,
-}
-
-#[napi]
-impl AudioOutput {
-  #[napi(factory)]
-  /// Opens the default audio output device with its default
-  /// configuration. If that fails, tries alternative configurations
-  /// and non-default output devices. Returns the first configuration
-  /// that succeeds. If all attempts fail, returns the initial error.
-  pub fn open_default() -> napi::Result<Self> {
-    let mut handle = simulang_rs::DeviceSinkBuilder::open_default_sink()
-      .map_err(|e| Error::from_reason(e.to_string()))?;
-    handle.log_on_drop(false);
-    Ok(Self { inner: handle })
-  }
-
-  #[napi]
-  #[must_use]
-  /// Creates a new `Player` attached to this output.
-  pub fn create_player(&self) -> Player {
-    Player {
-      inner: simulang_rs::Player::connect_new(self.inner.mixer()),
-    }
-  }
-}
-
-#[napi]
-/// Handle to a device that outputs sounds.
+/// A queue of sounds playing through a [`Machine`]'s default audio
+/// output.
 ///
-/// Dropping the `Player` (prevent this by holding a reference) stops
-/// all its sounds.
-pub struct Player {
-  inner: simulang_rs::Player,
+/// Obtain via [`Machine.player`]. The handle owns its output device
+/// connection: when it is garbage-collected playback stops. Appended
+/// sources play back to back; playback starts immediately on append.
+pub struct AudioPlayer {
+  pub(crate) inner: simulang_rs::AudioPlayer,
 }
 
 #[napi]
-impl Player {
+impl AudioPlayer {
   #[napi]
   #[allow(clippy::needless_pass_by_value)]
-  /// Decodes an audio file and appends it to the playback queue.
-  ///
-  /// Supports WAV, MP3, FLAC, Vorbis/OGG, and other formats
-  /// depending on build features.
+  /// Decodes an audio file (WAV, MP3, FLAC, Vorbis/OGG, ...) on the
+  /// **host** and appends it to the playback queue.
   pub fn append_file(&self, path: String) -> napi::Result<()> {
-    let file =
-      std::fs::File::open(&path).map_err(|e| Error::from_reason(format!("{path}: {e}")))?;
-    let source =
-      simulang_rs::Decoder::try_from(file).map_err(|e| Error::from_reason(e.to_string()))?;
-    self.inner.append(source);
-    Ok(())
+    self.inner.append_file(&path).map_err(Error::from_reason)
   }
 
   #[napi]
-  /// Appends a sound to the queue of sounds to play.
+  /// Appends a sound to the end of the playback queue.
   pub fn append_samples(&self, buffer: &SamplesBuffer) {
     self.inner.append(buffer.inner.clone());
   }
@@ -74,10 +37,7 @@ impl Player {
   }
 
   #[napi]
-  /// Pauses playback of this player.
-  ///
-  /// No effect if already paused. A paused player can be resumed with
-  /// `play()`.
+  /// Pauses playback; resume with `play()`.
   pub fn pause(&self) {
     self.inner.pause();
   }
@@ -90,19 +50,13 @@ impl Player {
 
   #[napi(getter)]
   #[must_use]
-  /// Volume of the sound.
-  ///
-  /// The value `1.0` is the "normal" volume (unfiltered input). Any
-  /// value other than `1.0` will multiply each sample by this value.
+  /// Volume multiplier; `1.0` is the unfiltered input.
   pub fn volume(&self) -> f64 {
     f64::from(self.inner.volume())
   }
 
   #[napi(setter)]
-  /// Sets the volume of the sound.
-  ///
-  /// The value `1.0` is the "normal" volume (unfiltered input). Any
-  /// value other than `1.0` will multiply each sample by this value.
+  /// Sets the volume multiplier; `1.0` is the unfiltered input.
   #[allow(clippy::cast_possible_truncation)]
   pub fn set_volume(&self, value: f64) {
     self.inner.set_volume(value as f32);
@@ -110,19 +64,13 @@ impl Player {
 
   #[napi(getter)]
   #[must_use]
-  /// Playback speed of the sound.
-  ///
-  /// Increasing the speed will increase the pitch by the same factor.
-  /// For example, speed `0.5` halves the frequency (lowering pitch)
-  /// and speed `2` doubles it (raising pitch). Changes in speed
-  /// affect the total duration inversely.
+  /// Playback speed; changing it changes pitch by the same factor.
   pub fn speed(&self) -> f64 {
     f64::from(self.inner.speed())
   }
 
   #[napi(setter)]
-  /// Changes the play speed of the sound. Does not adjust the
-  /// samples, only the playback speed.
+  /// Sets the playback speed (and with it the pitch).
   #[allow(clippy::cast_possible_truncation)]
   pub fn set_speed(&self, value: f64) {
     self.inner.set_speed(value as f32);
@@ -130,39 +78,36 @@ impl Player {
 
   #[napi(getter)]
   #[must_use]
-  /// Whether the player is currently paused. Players can be paused
-  /// and resumed using `pause()` and `play()`.
+  /// Whether the player is currently paused.
   pub fn is_paused(&self) -> bool {
     self.inner.is_paused()
   }
 
   #[napi]
   #[must_use]
-  /// Returns `true` if this player has no more sounds to play.
+  /// Whether the queue has no more sounds to play.
   pub fn empty(&self) -> bool {
     self.inner.empty()
   }
 
   #[napi]
   #[must_use]
-  /// Returns the number of sounds currently in the queue.
+  /// The number of sounds currently in the queue.
   #[allow(clippy::cast_possible_truncation, clippy::len_without_is_empty)]
   pub fn len(&self) -> u32 {
     self.inner.len() as u32
   }
 
   #[napi]
-  /// Sleeps the current thread until the sound ends.
+  /// Blocks the current thread until every queued sound has finished.
   pub fn sleep_until_end(&self) {
     self.inner.sleep_until_end();
   }
 
   #[napi]
   #[must_use]
-  /// Returns the position of the sound that's being played, in
-  /// milliseconds.
-  ///
-  /// This takes into account any speedup or delay applied.
+  /// Playback position within the current sound in milliseconds,
+  /// accounting for speed changes and seeks.
   ///
   /// Example: if you apply a speedup of *2* to a source and
   /// `getPos()` returns *5000* then the position in the recording
@@ -173,37 +118,26 @@ impl Player {
   }
 
   #[napi]
-  /// Removes all currently loaded sources from the player and pauses
-  /// it.
+  /// Removes all queued sounds and pauses the player.
   pub fn clear(&self) {
     self.inner.clear();
   }
 
   #[napi]
-  /// Skips to the next source in the player.
-  ///
-  /// If there are more sources appended to the player at the time,
-  /// it will play the next one. Otherwise, the player will finish as
-  /// if it had finished playing a source all the way through.
+  /// Skips to the next sound in the queue.
   pub fn skip_one(&self) {
     self.inner.skip_one();
   }
 
   #[napi]
-  /// Attempts to seek to the given position (in milliseconds) in the
-  /// current source.
+  /// Seeks within the current sound to the given position (in
+  /// milliseconds), saturating at its end when the duration is known.
+  /// For example given a source that reports a total duration of 42
+  /// seconds, calling `trySeek(60000)` will seek to 42 seconds.
   ///
   /// This blocks between 0 and ~5 milliseconds.
-  ///
-  /// As long as the duration of the source is known, seek is
-  /// guaranteed to saturate at the end of the source. For example
-  /// given a source that reports a total duration of 42 seconds,
-  /// calling `trySeek(60000)` will seek to 42 seconds.
   pub fn try_seek(&self, pos_ms: f64) -> napi::Result<()> {
     let pos = std::time::Duration::from_secs_f64(pos_ms / 1000.0);
-    self
-      .inner
-      .try_seek(pos)
-      .map_err(|e| Error::from_reason(e.to_string()))
+    self.inner.try_seek(pos).map_err(Error::from_reason)
   }
 }

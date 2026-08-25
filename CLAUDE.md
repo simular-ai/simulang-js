@@ -1,8 +1,9 @@
 # `@simular-ai/simulang-js`
 
 Node.js bindings for the Rust `simulang-rs` crate (via napi-rs). Cross-platform
-desktop automation: apps, windows, accessibility trees, mouse/keyboard,
-screenshots, clipboard, audio, and VLM/LLM/STT model access.
+automation of desktops and Android devices: apps, windows, accessibility
+trees, mouse/keyboard, screenshots, clipboard, audio, and VLM/LLM/STT model
+access.
 
 This file ships in the npm tarball alongside `index.d.ts` and is versioned
 with it.
@@ -18,6 +19,14 @@ restatement elsewhere.
 
 ## Mental model
 
+- **`Machine` is the entry point.** `Machine.local()` is the desktop this
+  process runs on; `Machine.android(endpoint)` is an Android device driven
+  over adb from the host. Apps, windows, and accessibility nodes are obtained
+  from a machine and stay bound to it; mouse, keyboard, and clipboard access
+  are flat methods on the machine itself (`moveMouse`, `typeText`,
+  `getClipboardString`, …). The same code drives any backend — write against
+  `Machine` and the handles it returns, and only reach for
+  `machine.asAndroid()` when an operation has no desktop counterpart.
 - Calls into the native module are **synchronous**. No Promises are returned;
   `Result::Err` on the Rust side is translated to a thrown JS exception by
   napi-rs, so JS callers `try`/`catch` as usual.
@@ -25,21 +34,22 @@ restatement elsewhere.
   accessibility trees, file/directory handles). Their lifetime matters;
   dropping them can free the underlying resource.
 - Coordinates live on the **global desktop**: top-left origin at `(0, 0)` on
-  the primary monitor, in **OS-native units** — the unit is **not** the same
-  on every platform:
-  - **Windows / Linux**: **physical pixels** (raw hardware pixels).
+  the primary monitor (on Android, the device screen), in **OS-native units**
+  — the unit is **not** the same on every platform:
+  - **Windows / Linux / Android**: **physical pixels** (raw hardware pixels).
   - **macOS**: **logical points** — on a 2× Retina display one point spans two
     hardware pixels, so a 1920×1080-logical screen is `1920×1080` here, not
     `3840×2160`.
 
   These are the native units the OS input/accessibility APIs expect, **not**
   the browser logical/CSS pixel. Within a single OS every API speaks that OS's
-  unit, so coordinates round-trip between `MouseController`, the various
-  `boundingBox()` methods, `Screenshot.toGlobalDesktopCoordinates()`, and
-  grounding output **without conversion**; only code crossing into a different
-  coordinate system (e.g. an Electron overlay measured in CSS pixels) must
-  account for the per-OS unit. Monitors arranged to the left of / above the
-  primary contribute **negative** coordinates, so don't assume `x, y >= 0`.
+  unit, so coordinates round-trip between `Machine`'s input methods, the
+  various `boundingBox()` methods,
+  `Screenshot.toGlobalDesktopCoordinates()`, and grounding output **without
+  conversion**; only code crossing into a different coordinate system (e.g.
+  an Electron overlay measured in CSS pixels) must account for the per-OS
+  unit. Monitors arranged to the left of / above the primary contribute
+  **negative** coordinates, so don't assume `x, y >= 0`.
 
 ## Logging is on by default
 
@@ -77,8 +87,9 @@ dependency — install it explicitly.**
 The window is **click-through by default**, so mouse input passes straight
 through to whatever is underneath and never interferes with the app being
 automated. On macOS it is also excluded from screen captures system-wide
-(via `NSWindowSharingNone`), so `screenshotFull` / `screenshotCropped` and
-any other capture tool won't include the viewer in the result. A global
+(via `NSWindowSharingNone`), so `Screen.screenshot` /
+`Machine.screenshotCropped` and any other capture tool won't include the
+viewer in the result. A global
 hotkey (`Ctrl+Shift+Option+L` on macOS, `Ctrl+Shift+Alt+L` everywhere
 else, also shown inside the window) toggles "grab mode": pressing it once
 turns click-through off, pauses execution, and makes the window draggable;

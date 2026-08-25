@@ -1,5 +1,5 @@
 use napi_derive::napi;
-use simulang_rs::Permissions;
+use simulang_rs::local::Permissions;
 use simulang_rs::traits::PermissionsTrait;
 
 #[napi]

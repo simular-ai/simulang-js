@@ -1,27 +1,21 @@
 // Run: node examples/open-app.mjs [appName]
-// Tests the full pipeline: find app -> open -> get PID -> bind tree -> snapshot.
+// Tests the full pipeline: find app -> open -> list windows -> bind tree -> snapshot.
 
-import {
-  System,
-  AccessibilityTree,
-  FocusPolicy,
-  Visibility,
-  TraversalOrder,
-  AriaRole,
-  Window,
-} from '@simular-ai/simulang-js'
+import { Machine, AccessibilityTree, FocusPolicy, Visibility, TraversalOrder, AriaRole } from '@simular-ai/simulang-js'
 
 const appName = process.argv[2] || 'Chrome'
+// Set SIMULANG_ANDROID=<host:port> to drive a connected Android device.
+const machine = process.env.SIMULANG_ANDROID ? Machine.android(process.env.SIMULANG_ANDROID) : Machine.local()
 
 // 1. List installed apps
 console.log('=== Installed apps (first 20) ===')
-const apps = System.listApps()
+const apps = machine.apps()
 apps.slice(0, 20).forEach((a) => console.log(`  ${a.canonicalName} -> ${a.launchTarget}`))
 console.log(`  ... (${apps.length} total)\n`)
 
 // 2. Fuzzy search
 console.log(`=== Searching for: ${appName} ===`)
-const app = System.fuzzySearch(appName)
+const app = machine.fuzzyApp(appName)
 console.log(`Found: ${app.canonicalName} -> ${app.launchTarget}\n`)
 
 // 3. Open the app
@@ -30,21 +24,16 @@ const instance = app.open('https://www.google.com', FocusPolicy.Steal, Visibilit
 console.log('PID:', instance.pid)
 console.log()
 
-if (instance.pid === 0) {
-  console.log('WARNING: PID is 0 - ShellExecuteEx did not return a process handle')
-  process.exit(1)
-}
-
-// 4. List windows for this PID
-console.log(`=== Windows for PID ${instance.pid} ===`)
-const windows = Window.allForPid(instance.pid)
+// 4. List windows for this instance
+console.log('=== Windows for instance ===')
+const windows = instance.windows()
 windows.forEach((w) => console.log(`  pid=${w.pid} "${w.title}"`))
 console.log()
 
 // 5. Bind and snapshot
 if (windows.length > 0) {
   console.log(`=== Snapshot of ${appName} ===`)
-  const tree = AccessibilityTree.fromPid(instance.pid)
+  const tree = AccessibilityTree.fromInstance(instance)
   console.log(`Bound to: "${tree.windowTitle}"`)
 
   const root = tree.snapshot(true)

@@ -1,27 +1,29 @@
 #!/usr/bin/env node
-// Sync the freshly-generated Mintlify MDX docs at ./docs/ into a checked-out
-// copy of simular-ai/docs at ./docs-repo/, then open or update a PR on that
-// repository. Driven by the publish job in .github/workflows/CI.yml on tag
-// pushes
+// Open or update a PR on simular-ai/docs that syncs the TypeDoc JSON
+// artifact and points the `sdk` navigation groups at it — Mintlify renders
+// the reference pages from the artifact (see
+// https://mintlify.com/docs/api-playground/sdk-reference-setup).
+// Run by the publish job in .github/workflows/CI.yml on tag pushes.
 //
 // Inputs from env:
 //   GITHUB_REF  -- refs/tags/vX.Y.Z (extracted to VERSION)
-//   GH_TOKEN    -- PAT with contents:write + pull-requests:write on simular-ai/docs
+//   GH_TOKEN    -- token with contents:write + pull-requests:write on
+//                  simular-ai/docs
 //
 // Preconditions (set up by CI):
-//   ./docs/                  -- output of `npm run docs:mintlify`
-//   ./docs-repo/             -- actions/checkout of simular-ai/docs @ main
-//                               (with persisted credentials so git push works)
+//   ./docs/simulang-js.api.json  -- output of `npm run docs:mintlify`
+//   ./docs-repo/                 -- actions/checkout of simular-ai/docs @ main
+//                                   (with persisted credentials so git push works)
 
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = join(__dirname, '..')
-const DOCS_OUT = join(REPO_ROOT, 'docs')
+const ARTIFACT = join(REPO_ROOT, 'docs', 'simulang-js.api.json')
 const DOCS_REPO = join(REPO_ROOT, 'docs-repo')
 // Per-version branch name (computed below after VERSION is parsed). Using
 // the version in the branch name means concurrent in-flight tag syncs each
@@ -30,12 +32,7 @@ const SYNC_BRANCH_PREFIX = 'simulang-js-api-sync'
 const TARGET_REPO = 'simular-ai/docs'
 const SUBGROUP_NAME = 'simulang-js Reference'
 const PARENT_GROUP = 'Simulang'
-const SECTION_LABELS = {
-  classes: 'Classes',
-  enumerations: 'Enumerations',
-  functions: 'Functions',
-  interfaces: 'Interfaces',
-}
+const API_BASE = 'simulang-js/api'
 
 function compareVersion(a, b) {
   // Compare two "vMAJOR.MINOR.PATCH" strings. Returns >0 if a is newer.
@@ -62,21 +59,16 @@ function runCapture(cmd, args, opts = {}) {
   }
 }
 
-async function walkPages(versionDir, slugPrefix) {
-  // Translate a per-version directory tree into the docs.json `pages` shape
-  // Mintlify expects: an index slug followed by one group per section.
-  const pages = [`${slugPrefix}/index`]
-  for (const [section, label] of Object.entries(SECTION_LABELS)) {
-    const dir = join(versionDir, section)
-    if (!existsSync(dir)) continue
-    const files = (await readdir(dir)).filter((f) => f.endsWith('.mdx')).sort()
-    if (files.length === 0) continue
-    pages.push({
-      group: label,
-      pages: files.map((f) => `${slugPrefix}/${section}/${f.replace(/\.mdx$/, '')}`),
-    })
+function sdkGroup(label, version, directory, extra = {}) {
+  return {
+    group: label,
+    ...extra,
+    sdk: {
+      format: 'typedoc',
+      source: `${API_BASE}/_artifacts/${version}.json`,
+      directory,
+    },
   }
-  return pages
 }
 
 const tagRef = process.env.GITHUB_REF ?? ''
@@ -91,8 +83,8 @@ const VERSION = tagMatch[1]
 const SYNC_BRANCH = `${SYNC_BRANCH_PREFIX}-${VERSION}`
 console.log(`[sync-mintlify] Syncing simulang-js API reference for ${VERSION}`)
 
-if (!existsSync(DOCS_OUT)) {
-  throw new Error(`Expected ${DOCS_OUT}/ to exist (run \`npm run docs:mintlify\` first).`)
+if (!existsSync(ARTIFACT)) {
+  throw new Error(`Expected ${ARTIFACT} to exist (run \`npm run docs:mintlify\` first).`)
 }
 if (!existsSync(DOCS_REPO)) {
   throw new Error(`Expected ${DOCS_REPO}/ to exist (checkout simular-ai/docs first).`)
@@ -102,8 +94,9 @@ if (!existsSync(DOCS_REPO)) {
 // clean diff against the merge target.
 run('git', ['checkout', '-B', SYNC_BRANCH, 'origin/main'], { cwd: DOCS_REPO })
 
-const apiDir = join(DOCS_REPO, 'simulang-js', 'api')
-await mkdir(apiDir, { recursive: true })
+const apiDir = join(DOCS_REPO, ...API_BASE.split('/'))
+const artifactsDir = join(apiDir, '_artifacts')
+await mkdir(artifactsDir, { recursive: true })
 
 const versionsPath = join(apiDir, '_versions.json')
 let manifest = { latest: null, versions: [] }
@@ -111,7 +104,7 @@ if (existsSync(versionsPath)) {
   try {
     manifest = JSON.parse(await readFile(versionsPath, 'utf8'))
   } catch (err) {
-    throw new Error(`Failed to parse ${versionsPath}: ${err.message}`)
+    throw new Error(`Failed to parse ${versionsPath}: ${err.message}`, { cause: err })
   }
 }
 // Treat this sync as "latest" only when VERSION is strictly newer than what
@@ -119,14 +112,7 @@ if (existsSync(versionsPath)) {
 // retroactively after a newer one has shipped.
 const isLatest = !manifest.latest || compareVersion(VERSION, manifest.latest) > 0
 
-const latestDir = join(apiDir, 'latest')
-const versionDir = join(apiDir, VERSION)
-await rm(versionDir, { recursive: true, force: true })
-await cp(DOCS_OUT, versionDir, { recursive: true })
-if (isLatest) {
-  await rm(latestDir, { recursive: true, force: true })
-  await cp(DOCS_OUT, latestDir, { recursive: true })
-}
+await copyFile(ARTIFACT, join(artifactsDir, `${VERSION}.json`))
 
 const today = new Date().toISOString().slice(0, 10)
 const existingIdx = manifest.versions.findIndex((v) => v.version === VERSION)
@@ -168,29 +154,23 @@ const existingIcon =
     ? parentGroup.pages[subgroupIdx].icon
     : undefined
 
-const versionEntries = []
+const subgroupPages = []
 for (const v of manifest.versions) {
-  const vDir = join(apiDir, v.version)
-  if (!existsSync(vDir)) {
-    console.warn(`[sync-mintlify] ${v.version} listed in manifest but ${vDir} missing; skipping.`)
+  if (!existsSync(join(artifactsDir, `${v.version}.json`))) {
+    console.warn(`[sync-mintlify] ${v.version} listed in manifest but its artifact is missing; skipping.`)
     continue
   }
-  versionEntries.push({
-    group: v.version === manifest.latest ? `${v.version} (latest)` : v.version,
-    expanded: false,
-    pages: await walkPages(vDir, `simulang-js/api/${v.version}`),
-  })
+  subgroupPages.push(
+    sdkGroup(
+      v.version === manifest.latest ? `${v.version} (latest)` : v.version,
+      v.version,
+      `${API_BASE}/${v.version}`,
+      {
+        expanded: false,
+      },
+    ),
+  )
 }
-
-const subgroupPages = []
-if (manifest.latest && existsSync(latestDir)) {
-  subgroupPages.push({
-    group: `Latest (${manifest.latest})`,
-    tag: 'Latest',
-    pages: await walkPages(latestDir, 'simulang-js/api/latest'),
-  })
-}
-subgroupPages.push(...versionEntries)
 
 const newSubgroup = {
   group: SUBGROUP_NAME,
@@ -202,6 +182,16 @@ if (subgroupIdx >= 0) {
 } else {
   parentGroup.pages.push(newSubgroup)
 }
+
+// No rendered "latest" tree — old /api/latest/... URLs redirect to the
+// newest version instead.
+const latestRedirectSource = `/${API_BASE}/latest/:slug*`
+docsJson.redirects = (docsJson.redirects ?? []).filter((r) => r.source !== latestRedirectSource)
+docsJson.redirects.push({
+  source: latestRedirectSource,
+  destination: `/${API_BASE}/${manifest.latest}/:slug*`,
+})
+
 await writeFile(docsJsonPath, JSON.stringify(docsJson, null, 2) + '\n', 'utf8')
 
 const diff = runCapture('git', ['diff', '--quiet'], { cwd: DOCS_REPO })
@@ -239,11 +229,11 @@ if (prView.status === 0) {
     ``,
     `Updates the simulang-js API reference for **${VERSION}**:`,
     ``,
-    `- Wrote \`simulang-js/api/${VERSION}/\` (immutable archive).`,
+    `- Wrote the TypeDoc JSON artifact \`${API_BASE}/_artifacts/${VERSION}.json\` (rendered by Mintlify via the \`sdk\` navigation property).`,
     isLatest
-      ? `- Rotated \`simulang-js/api/latest/\` to point at ${VERSION} (now the newest release in the manifest).`
-      : `- Left \`simulang-js/api/latest/\` alone — ${manifest.latest} is still newer than ${VERSION}.`,
-    `- Refreshed \`simulang-js/api/_versions.json\`.`,
+      ? `- Pointed the \`/${API_BASE}/latest/...\` redirect at ${VERSION} (now the newest release in the manifest).`
+      : `- Left the \`/${API_BASE}/latest/...\` redirect at ${manifest.latest}, which is still newer than ${VERSION}.`,
+    `- Refreshed \`${API_BASE}/_versions.json\`.`,
     `- Regenerated the \`${SUBGROUP_NAME}\` subgroup of \`${PARENT_GROUP}\` in \`docs.json\`.`,
     ``,
     `Triggered by tag push to https://github.com/simular-ai/simulang-js/tree/${VERSION}.`,

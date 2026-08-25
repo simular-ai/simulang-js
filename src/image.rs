@@ -5,6 +5,7 @@ use napi_derive::napi;
 use simulang_rs::Image as SimulangImage;
 use simulang_rs::traits::ImageTrait;
 
+use crate::ax_tree::BoundingBox;
 use crate::language_model::vlm::GroundingModel;
 
 #[napi]
@@ -65,6 +66,33 @@ impl Image {
   }
 
   #[napi]
+  /// Draws the outline of the axis-aligned rectangle `bounds` on the image.
+  /// Useful for visualizing bounding boxes returned from grounding, element /
+  /// layout queries, ground-truth annotations, etc.
+  ///
+  /// `bounds` is in image-pixel coordinates and covers `[left, right) ×
+  /// [top, bottom)` (`right` / `bottom` exclusive, matching a `BoundingBox`).
+  /// The border is `thickness` pixels wide, drawn inset within that range so
+  /// nothing is painted outside it, in the opaque RGB `(red, green, blue)`
+  /// color. Pixels that fall outside the image bounds are silently clipped, so
+  /// it is safe to call with a box that extends past the image. Throws when
+  /// `thickness` is `0` or `bounds` is degenerate (`right <= left` or
+  /// `bottom <= top`).
+  pub fn draw_box(
+    &mut self,
+    bounds: BoundingBox,
+    thickness: u16,
+    red: u8,
+    green: u8,
+    blue: u8,
+  ) -> napi::Result<()> {
+    self
+      .inner
+      .draw_box(bounds.try_into()?, thickness, [red, green, blue])
+      .map_err(Error::from_reason)
+  }
+
+  #[napi]
   /// Compress the image by converting it to JPEG with the specified quality.
   ///
   /// The quality is a value between 1 and 100.
@@ -98,22 +126,27 @@ impl Image {
   }
 
   #[napi]
-  #[must_use]
+  /// Returns the image encoded as raw base64, without a MIME prefix.
+  pub fn base64(&self) -> napi::Result<String> {
+    self.inner.base64().map_err(Error::from_reason)
+  }
+
+  #[napi]
   /// Returns the image encoded as a base64 data URL.
   ///
   /// The result includes the MIME prefix, for example
-  /// `data:image/png;base64,...` or `data:image/jpeg;base64,...`.
-  pub fn base64(&self) -> String {
-    self.inner.base64()
+  /// `data:image/png;base64,...`, `data:image/jpeg;base64,...`,
+  /// `data:image/gif;base64,...`, or `data:image/webp;base64,...`.
+  pub fn base64_data_url(&self) -> napi::Result<String> {
+    self.inner.base64_data_url().map_err(Error::from_reason)
   }
 
   #[napi(factory)]
   #[allow(clippy::needless_pass_by_value)]
   /// Decodes a base64 image string into an image.
   ///
-  /// Accepts either a raw base64 payload or a data URL such as
-  /// `data:image/png;base64,...`, `data:image/jpeg;base64,...`, or
-  /// `data:image/jpg;base64,...`.
+  /// Accepts either a raw base64 payload or a PNG, JPEG/JPG, GIF, or WebP
+  /// data URL.
   pub fn from_base64(base64: String) -> napi::Result<Self> {
     SimulangImage::from_base64(&base64)
       .map(|inner| Self { inner })

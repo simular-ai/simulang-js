@@ -12,6 +12,18 @@ export const TINY_JPEG_BASE64 =
 /** Data URL for the 1x1 JPEG pixel. */
 export const TINY_JPEG_DATA_URL = `data:image/jpeg;base64,${TINY_JPEG_BASE64}`
 
+/** Base64 for a 1x1 transparent GIF. */
+export const TINY_GIF_BASE64 = 'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+
+/** Data URL for the 1x1 transparent GIF. */
+export const TINY_GIF_DATA_URL = `data:image/gif;base64,${TINY_GIF_BASE64}`
+
+/** Base64 for a 1x1 WebP pixel. */
+export const TINY_WEBP_BASE64 = 'UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAwA0JaQAA3AA/vuUAAA='
+
+/** Data URL for the 1x1 WebP pixel. */
+export const TINY_WEBP_DATA_URL = `data:image/webp;base64,${TINY_WEBP_BASE64}`
+
 /** Valid base64 that does not decode to an image. */
 export const NON_IMAGE_BASE64 = 'dmFsaWRfYmFzZTY0X2J1dF9ub3RfYW5faW1hZ2U='
 

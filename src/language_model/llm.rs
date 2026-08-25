@@ -20,7 +20,8 @@ impl AskModel {
   #[napi(factory)]
   /// First LLM model advertised by the first LLM-capable provider in the
   /// loaded configuration whose credentials are currently available.
-  /// Throws if no provider in the loaded config advertises an LLM service.
+  /// Providers with missing credentials are skipped; throws if no provider
+  /// remains available.
   #[allow(clippy::should_implement_trait)]
   pub fn default() -> napi::Result<Self> {
     simulang_rs::language_model::AskModel::default()
@@ -30,8 +31,9 @@ impl AskModel {
 
   #[napi(factory)]
   /// Resolve a model alias against the loaded config (e.g.
-  /// `"openrouter_gpt_4o_mini"` from the bundled `openrouter` provider, or
-  /// any alias declared by a user provider). Throws if the alias is unknown.
+  /// `"openrouter_gpt_4o_mini"` / `"openrouter_claude_opus"` from the
+  /// bundled `openrouter` provider, or any alias declared by a user provider).
+  /// Throws if the alias is unknown.
   #[allow(clippy::needless_pass_by_value)]
   pub fn by_alias(alias: String) -> napi::Result<Self> {
     simulang_rs::language_model::AskModel::by_alias(&alias)
@@ -80,8 +82,8 @@ impl AskModel {
   /// - `text`: optional accessibility-tree (or any) text included as
   ///   structural context. Pass `null` / omit to skip.
   /// - `images`: zero or more images to attach. Each is encoded as a
-  ///   base64 data URL and sent as an `image_url` chat content part. Pass
-  ///   `null` / omit for none.
+  ///   base64 data URL in a model-supported format and sent as an
+  ///   `image_url` chat content part. Pass `null` / omit for none.
   ///
   /// Returns the trimmed assistant response on success.
   #[allow(clippy::needless_pass_by_value)]

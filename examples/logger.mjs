@@ -10,7 +10,10 @@
 // This example shows the callback form. For the env_logger-style default
 // sink, just call `initLogger()` with no arguments.
 
-import { initLogger, readFile } from '@simular-ai/simulang-js'
+import { initLogger, Machine } from '@simular-ai/simulang-js'
+
+// Set SIMULANG_ANDROID=<host:port> to drive a connected Android device.
+const machine = process.env.SIMULANG_ANDROID ? Machine.android(process.env.SIMULANG_ANDROID) : Machine.local()
 
 initLogger((record) => {
   // Records carry { level, target, message, file?, line?, modulePath? }.
@@ -20,7 +23,7 @@ initLogger((record) => {
 
 // Trigger something so we have at least one record to look at.
 try {
-  readFile('/tmp/this/file/probably/does/not/exist')
+  machine.file('/tmp/this/file/probably/does/not/exist', false)
 } catch {
   // expected — we just want to exercise the code paths that may log.
 }

@@ -6,7 +6,7 @@ import {
   AriaRole,
   Direction,
   Image,
-  KeyboardController,
+  SamplesBuffer,
   ScreenshotCoordinateType,
   ariaRoleToString,
   keyFromString,
@@ -72,7 +72,7 @@ describe('setPauseHook', () => {
     setPauseHook(() => {
       calls++
     })
-    new KeyboardController()
+    new SamplesBuffer(1, 16000, [0])
     expect(calls).toBe(0)
   })
 
@@ -112,8 +112,8 @@ describe('setPauseHook', () => {
     const img = Image.fromBase64(TINY_PNG)
     expect(img).toBeInstanceOf(Image)
 
-    const kb = new KeyboardController()
-    expect(kb).toBeInstanceOf(KeyboardController)
+    const buf = new SamplesBuffer(1, 16000, [0])
+    expect(buf).toBeInstanceOf(SamplesBuffer)
   })
 
   test('the wrapped call blocks until the synchronous hook returns', () => {

@@ -18,8 +18,11 @@
 // Inside an automation loop, `await win.waitIfPaused()` yields cleanly
 // while the user has paused; it returns immediately otherwise.
 
-import { Clipboard, screenshotFull, Screen, initLogger } from '@simular-ai/simulang-js'
+import { Machine, initLogger } from '@simular-ai/simulang-js'
 import { LogWindow } from '@simular-ai/simulang-log-viewer'
+
+// Set SIMULANG_ANDROID=<host:port> to drive a connected Android device.
+const machine = process.env.SIMULANG_ANDROID ? Machine.android(process.env.SIMULANG_ANDROID) : Machine.local()
 
 const win = new LogWindow()
 win.spawn()
@@ -40,12 +43,11 @@ initLogger((rec) => {
 // re-narrating every call.
 win.log('clipboard + screenshot demo')
 try {
-  const cb = new Clipboard()
-  const previous = cb.setString('hello from simulang-js')
-  cb.getString()
-  if (previous !== null) cb.setString(previous)
+  const previous = machine.setClipboardString('hello from simulang-js').text
+  machine.getClipboardString()
+  if (previous !== null) machine.setClipboardString(previous)
 
-  const shot = screenshotFull(true, Screen.mainScreen())
+  const shot = machine.screenFromMouse().screenshot(true)
   shot.shrink(640, 480)
   win.log(`screenshot captured: ${shot.base64().length} bytes base64`)
 } catch (err) {

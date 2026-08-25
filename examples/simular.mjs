@@ -1,10 +1,13 @@
-import { App, FocusPolicy, Visibility, AccessibilityTree, AriaRole, TraversalOrder } from '@simular-ai/simulang-js'
+import { Machine, FocusPolicy, Visibility, AccessibilityTree, AriaRole, TraversalOrder } from '@simular-ai/simulang-js'
+
+// Set SIMULANG_ANDROID=<host:port> to drive a connected Android device.
+const machine = process.env.SIMULANG_ANDROID ? Machine.android(process.env.SIMULANG_ANDROID) : Machine.local()
 
 // Open simular.ai in the default browser and wait for it to load
-App.defaultBrowser().open('https://simular.ai', FocusPolicy.Steal, Visibility.Show, true)
+const browser = machine.defaultBrowser().open('https://simular.ai', FocusPolicy.Steal, Visibility.Show, true)
 
-// Bind to the browser window and find the "About" link by role and name
-const tree = AccessibilityTree.fromForeground()
+// Bind to the browser and find the "About" link by role and name
+const tree = AccessibilityTree.fromInstance(browser)
 const [link] = tree.find(TraversalOrder.BreadthFirst, AriaRole.Link, 'About', true, 1)
 
 // Click it

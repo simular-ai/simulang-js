@@ -1,6 +1,6 @@
 use napi::Error;
 use napi_derive::napi;
-use simulang_rs::AXNode;
+use simulang_rs::Node;
 use simulang_rs::traits::{
   AXNodeActions, AXNodeAncestry, AXNodeSynthetic, AXNodeTrait, BoundingBoxTrait,
 };
@@ -8,79 +8,34 @@ use simulang_rs::traits::{
 use crate::aria_role::AriaRole;
 use crate::ax_tree::{BoundingBox, TraversalOrder};
 
-/// A node in the platform accessibility tree. Thin binding for
-/// `simulang_rs::AXNode` (macOS `AXUIElement` / Windows UIA element /
-/// Linux AT-SPI accessible).
+/// A node in a machine's accessibility tree. Thin binding for
+/// `simulang_rs::Node` (macOS `AXUIElement` / Windows UIA element /
+/// Linux AT-SPI accessible / Android uiautomator snapshot node).
 ///
-/// Construct via the static factories or via tree-walking methods on
-/// another node / `Instance` / `Window` (`children`, `find`,
-/// `scoredSearch`). Properties are resolved from the underlying
-/// accessibility framework on each access; the node itself is just a
-/// handle.
+/// Obtain via [`Machine.focusedRoot`], [`Machine.systemRoot`],
+/// [`Machine.nodeAtPoint`], [`Instance.root`], [`Window.node`],
+/// or via tree-walking methods on another node / `Instance` / `Window`
+/// (`children`, `find`, `scoredSearch`). Desktop nodes are live handles
+/// whose properties re-resolve from the platform accessibility framework
+/// on each access; Android nodes are part of a parsed snapshot whose
+/// actions resolve back to the live screen.
 #[napi]
 pub struct AccessibilityNode {
-  pub(crate) inner: AXNode,
+  pub(crate) inner: Node,
 }
 
 impl AccessibilityNode {
-  pub(crate) const fn new(inner: AXNode) -> Self {
+  pub(crate) const fn new(inner: Node) -> Self {
     Self { inner }
   }
 
-  pub(crate) fn from_nodes(nodes: Vec<AXNode>) -> Vec<Self> {
+  pub(crate) fn from_nodes(nodes: Vec<Node>) -> Vec<Self> {
     nodes.into_iter().map(Self::new).collect()
   }
 }
 
 #[napi]
 impl AccessibilityNode {
-  // ---------------------------------------------------------------
-  // factories
-  // ---------------------------------------------------------------
-
-  #[napi(factory)]
-  /// Root node of the currently focused application's accessibility tree.
-  pub fn from_focused_application() -> napi::Result<Self> {
-    AXNode::from_focused_application()
-      .map(Self::new)
-      .map_err(Error::from_reason)
-  }
-
-  #[napi(factory)]
-  /// Root node of the application identified by `pid`.
-  #[allow(clippy::cast_possible_wrap)]
-  pub fn from_pid(pid: u32) -> napi::Result<Self> {
-    AXNode::from_pid(pid as i32)
-      .map(Self::new)
-      .map_err(Error::from_reason)
-  }
-
-  #[napi]
-  /// Element at screen coordinates (`x`, `y`) via the platform hit-test
-  /// (Windows UIA `ElementFromPoint`, macOS
-  /// `AXUIElementCopyElementAtPosition`, Linux recursive AT-SPI
-  /// `GetAccessibleAtPoint`).
-  ///
-  /// `(x, y)` are global desktop coordinates in the canonical coordinate space
-  /// (OS-native units; see [`MouseController`])
-  /// — the same space `.boundingBox()` and `MouseController` use, so a
-  /// `boundingBox()` corner or cursor `location()` can be passed straight in.
-  /// Returns an **uncached** handle suitable for one-shot reads of properties
-  /// such as `.boundingBox()` or `.overallDescription`; it is not registered
-  /// for ref-based action methods (`activate`, `setValue`, …).
-  ///
-  /// Returns `null` when the point has no accessible element (empty
-  /// desktop, gaps between controls, or — on Linux — a point outside the
-  /// focused application). Throws only on a genuine accessibility-backend
-  /// failure.
-  pub fn from_point(x: i32, y: i32) -> napi::Result<Option<AccessibilityNode>> {
-    Ok(
-      AXNode::from_point(x, y)
-        .map_err(Error::from_reason)?
-        .map(Self::new),
-    )
-  }
-
   // ---------------------------------------------------------------
   // properties
   // ---------------------------------------------------------------
@@ -101,16 +56,10 @@ impl AccessibilityNode {
 
   #[napi(getter)]
   #[must_use]
-  /// Platform class name (Windows UIA `ClassName` / macOS subrole).
+  /// Platform class name (Windows UIA `ClassName` / macOS subrole /
+  /// Android widget class).
   pub fn class_name(&self) -> String {
     self.inner.class_name()
-  }
-
-  #[napi(getter)]
-  #[must_use]
-  /// Numeric control type (`UIA_ControlTypeIds` on Windows, `0` on macOS).
-  pub fn control_type(&self) -> i32 {
-    self.inner.control_type_id()
   }
 
   #[napi(getter)]
@@ -151,7 +100,14 @@ impl AccessibilityNode {
 
   #[napi(getter)]
   #[must_use]
-  /// UIA `AutomationId` (Windows). Empty on macOS / Linux.
+  /// Stable element identifier that the inspected application's own source
+  /// code assigned to this element (e.g. for its UI tests), or the empty
+  /// string when the application didn't set one — most elements don't have
+  /// it.
+  ///
+  /// Each platform reads its native concept: UIA `AutomationId` on Windows,
+  /// `AXIdentifier` on macOS, AT-SPI `Accessible.AccessibleId` on Linux,
+  /// and the view `resource-id` on Android.
   pub fn automation_id(&self) -> String {
     self.inner.automation_id()
   }
@@ -161,6 +117,23 @@ impl AccessibilityNode {
   /// Whether the node accepts user input.
   pub fn is_enabled(&self) -> bool {
     self.inner.is_enabled()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  /// Whether the platform reports the node as visible, or `null` when the
+  /// visibility attribute cannot be read.
+  ///
+  /// On Windows this maps to UIA `!IsOffscreen`; on Linux to the AT-SPI
+  /// `Visible` + `Showing` states. On macOS it reads the non-standard
+  /// `AXVisible` attribute — a Chromium-specific extension that native
+  /// apps don't expose (→ `null`). Note Chromium's accessibility-tree
+  /// visibility is compositor-driven, not pixel-driven: many
+  /// web-content nodes (including links) report `AXVisible = false`
+  /// even when rendered, so filtering a browser window on
+  /// `isVisible === true` can silently drop most of the page.
+  pub fn is_visible(&self) -> Option<bool> {
+    self.inner.is_visible()
   }
 
   #[napi(getter)]
@@ -175,8 +148,7 @@ impl AccessibilityNode {
 
   #[napi]
   /// Live bounding box of the element on the global desktop, in the canonical
-  /// coordinate space (OS-native units; see
-  /// [`MouseController`]).
+  /// coordinate space (OS-native units; see [`Machine`]).
   /// `right` and `bottom` are exclusive (Playwright / DOM convention).
   pub fn bounding_box(&self) -> napi::Result<BoundingBox> {
     self
@@ -191,12 +163,36 @@ impl AccessibilityNode {
   // ---------------------------------------------------------------
 
   #[napi]
-  #[must_use]
-  /// Direct child nodes. Returns an empty array if the subtree has been
-  /// torn down or the children attribute is unreadable (matching
-  /// simulang-rs's convention of treating walk failures as "no children").
-  pub fn children(&self) -> Vec<AccessibilityNode> {
-    Self::from_nodes(self.inner.children().unwrap_or_default())
+  /// Direct child nodes. Throws when the subtree has been torn down or
+  /// the children attribute is unreadable. (Tree walks — `snapshot`,
+  /// `scoredSearch`, `childrenCollapsed` — treat such failures as "no
+  /// children" instead, so one torn-down subtree cannot abort a whole
+  /// walk.)
+  pub fn children(&self) -> napi::Result<Vec<AccessibilityNode>> {
+    self
+      .inner
+      .children()
+      .map(Self::from_nodes)
+      .map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Direct children with collapsible structural wrappers hoisted out:
+  /// a child that is a collapsible structural wrapper is skipped and its own
+  /// (recursively collapsed) children take its place, preserving sibling
+  /// order. This is the single-level counterpart of the structural hoisting
+  /// applied by tree walks, for callers that drive their own walks.
+  ///
+  /// An error from this node's `children()` is propagated; errors from a
+  /// collapsible wrapper's own `children()` are treated as "no children"
+  /// (the walkers' convention), so one torn-down wrapper cannot abort the
+  /// whole read.
+  pub fn children_collapsed(&self) -> napi::Result<Vec<AccessibilityNode>> {
+    self
+      .inner
+      .children_collapsed()
+      .map(Self::from_nodes)
+      .map_err(Error::from_reason)
   }
 
   #[napi]
@@ -377,6 +373,24 @@ impl AccessibilityNode {
   /// Expand or collapse a dropdown or tree item.
   pub fn expand_collapse(&self) -> napi::Result<()> {
     self.inner.expand_collapse().map_err(Error::from_reason)
+  }
+
+  #[napi]
+  /// Open the element's context menu — the semantic equivalent of a
+  /// right-click, without synthesizing pointer input, so it works on
+  /// background / obscured windows (Windows `ShowContextMenu`, macOS
+  /// `AXShowMenu`, Linux AT-SPI show-menu, Android long-press).
+  ///
+  /// The opened menu itself typically appears as the topmost / focused
+  /// window even when the target window stays in the background — a user
+  /// watching the desktop sees a menu pop up without having done
+  /// anything.
+  ///
+  /// Throws when the element does not support opening a menu this way;
+  /// callers can fall back to a coordinate right-click at the element's
+  /// `boundingBox()` center.
+  pub fn show_menu(&self) -> napi::Result<()> {
+    self.inner.show_menu().map_err(Error::from_reason)
   }
 
   #[napi]

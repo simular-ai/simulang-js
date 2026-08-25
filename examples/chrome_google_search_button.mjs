@@ -13,15 +13,7 @@
 //   - Google Chrome installed
 //   - On macOS: Accessibility permission granted to the process running Node.
 
-import {
-  AccessibilityTree,
-  App,
-  FocusPolicy,
-  TraversalOrder,
-  Visibility,
-  Window,
-  ariaRoleToString,
-} from '@simular-ai/simulang-js'
+import { FocusPolicy, Machine, TraversalOrder, Visibility, ariaRoleToString } from '@simular-ai/simulang-js'
 
 /** Natural-language concept matched against each node's `overallDescription`. */
 const CONCEPT = 'Auf gut Glück'
@@ -39,7 +31,7 @@ async function waitForChromeForeground(timeoutMs) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     try {
-      const title = AccessibilityTree.fromForeground().windowTitle.toLowerCase()
+      const title = machine.focusedWindow()?.title.toLowerCase() ?? ''
       if (title.includes('chrome') || title.includes('chromium') || title.includes('谷歌')) {
         return
       }
@@ -51,7 +43,9 @@ async function waitForChromeForeground(timeoutMs) {
   throw new Error(`Chrome did not become the foreground window within ${timeoutMs} ms`)
 }
 
-const instance = App.exactName(browser).open('https://www.google.com', FocusPolicy.Steal, Visibility.Show, true)
+// Set SIMULANG_ANDROID=<host:port> to drive a connected Android device.
+const machine = process.env.SIMULANG_ANDROID ? Machine.android(process.env.SIMULANG_ANDROID) : Machine.local()
+const instance = machine.app(browser).open('https://www.google.com', FocusPolicy.Steal, Visibility.Show, true)
 console.log(`Opened ${browser} (pid=${instance.pid})`)
 
 await new Promise((r) => setTimeout(r, 2000))
@@ -82,7 +76,7 @@ console.log(`  supportedActions:    ${JSON.stringify(button.supportedActions())}
 // available directly on the returned `AccessibilityNode`.
 
 console.log('\nMinimizing Chrome window…')
-const [chromeWindow] = Window.allForPid(instance.pid)
+const [chromeWindow] = instance.windows()
 if (!chromeWindow) throw new Error('no windows found for instance')
 chromeWindow.minimize()
 console.log('Window should be minimized.')

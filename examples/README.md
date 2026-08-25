@@ -17,6 +17,15 @@ cp node_modules/@simular-ai/simulang-js/examples/screenshot.mjs ./
 node screenshot.mjs
 ```
 
+Every example creates a `Machine` once at the top and drives everything
+through that one handle, so the rest of the code is backend-agnostic. By
+default the machine is the local desktop; set `SIMULANG_ANDROID` to an adb
+endpoint to drive a connected Android device instead:
+
+```bash
+SIMULANG_ANDROID=127.0.0.1:5555 node examples/open-app.mjs
+```
+
 ## What each example does
 
 | File                              | Description                                                                                                                                                                                  |
@@ -25,7 +34,7 @@ node screenshot.mjs
 | `file-trait.mjs`                  | Writes a text file and reads it back.                                                                                                                                                        |
 | `clipboard.mjs`                   | Reads, writes, pastes, and clears the system clipboard.                                                                                                                                      |
 | `keyboard.mjs`                    | Synthesizes keyboard input (types a string and sends key events).                                                                                                                            |
-| `screenshot.mjs`                  | Captures the main screen, resizes and compresses the image, saves to disk.                                                                                                                   |
+| `screenshot.mjs`                  | Captures the machine's screen, resizes and compresses the image, saves to disk.                                                                                                              |
 | `google_search.mjs`               | End-to-end flow: launches Chrome, navigates, captures a screenshot.                                                                                                                          |
 | `accessibility.mjs`               | Lists windows, snapshots the foreground accessibility tree, queries actions.                                                                                                                 |
 | `chrome_google_search_button.mjs` | Opens google.com in Chrome and locates the search button by _concept text_, using BoW Jaccard scoring over `overallDescription`.                                                             |

@@ -3,7 +3,8 @@ updates:
   - package-ecosystem: 'npm'
     directory: '/'
     schedule:
-      interval: 'daily'
+      interval: 'weekly'
+      day: 'wednesday'
     cooldown:
       default-days: 7
     labels:
@@ -27,9 +28,16 @@ updates:
   - package-ecosystem: 'cargo'
     directory: '/'
     schedule:
-      interval: 'daily'
+      interval: 'weekly'
+      day: 'wednesday'
     cooldown:
       default-days: 7
+      # simulang-rs is pinned to a git tag and bumped manually on every release,
+      # usually within the cooldown window. Dependabot then targets the newest
+      # tag *outside* the cooldown, which is older than the pin, and opens
+      # downgrade PRs (e.g. #145, #153). Excluding it avoids the mismatch.
+      exclude:
+        - 'simulang-rs'
     labels:
       - 'dependencies'
     commit-message:
@@ -38,7 +46,8 @@ updates:
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
-      interval: 'daily'
+      interval: 'weekly'
+      day: 'wednesday'
     cooldown:
       default-days: 7
     labels:
