@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [12.1.0] - 2026-08-26
+
+### Added
+
+- `clickablePoint(allowDescendants?)` on `AccessibilityNode`, `AccessibilityTree` (by ref id), and `AccessibilitySnapshot` (by index) — a screen point `[x, y]` where a pointer click actually lands on the element, verified by hit-testing (Windows: UIA `GetClickablePoint`; macOS/Linux: UIA's probe ladder — center, edge midpoints, sparse grid, diagonal — checked against the platform hit test; Android: bounds center, unverified). `allowDescendants` (default `false`) also accepts a point landing on a node inside the element; a point landing on an ancestor never counts. Throws with the reason (naming the covering element when known) when no verified point exists — obscured, offscreen, or zero-sized — instead of guessing a center that would click something else.
+
 ## [12.0.3] - 2026-08-25
 
 ### Added

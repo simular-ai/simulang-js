@@ -59,7 +59,7 @@ The added line is a single `@./node_modules/@simular-ai/simulang-js/CLAUDE.md` i
 
 ## Relationship to `simulang`
 
-[`@simular-ai/simulang`](https://github.com/simular-ai/simulang-cli) is a CLI that runs desktop automation scripts (`.ts`, `.js`, `.simulang`) using this package. It bundles `simulang-js` and re-exports the full API to scripts, so you can write and run automation scripts without a build step:
+[`@simular-ai/simulang`](https://github.com/simular-ai/simulang) is a CLI that runs desktop automation scripts (`.ts`, `.js`, `.simulang`) using this package. It bundles `simulang-js` and re-exports the full API to scripts, so you can write and run automation scripts without a build step:
 
 ```bash
 npm install -g @simular-ai/simulang

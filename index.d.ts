@@ -77,6 +77,32 @@ export declare class AccessibilityNode {
    */
   boundingBox(): BoundingBox
   /**
+   * A screen point where a pointer click actually lands on this element,
+   * as `[x, y]` in the canonical global-desktop space (OS-native units;
+   * see [`Machine`]).
+   *
+   * The point is verified by hit-testing: the deepest element at the
+   * point must be this element. Pass `allowDescendants: true` to also
+   * accept a point that lands on a node inside this element — useful for
+   * containers whose surface is fully tiled by their children (a click
+   * there still clicks the container). A point that lands on an ancestor
+   * never counts.
+   *
+   * Windows asks UIA (`GetClickablePoint`) first; when that fails and
+   * descendants are allowed, it probes like the other platforms. macOS
+   * and Linux probe the bounding box the way UIA does (center, edge
+   * midpoints, sparse grid, diagonal) and hit-test each candidate.
+   * Android has no hit-test channel and returns the bounds center
+   * unverified.
+   *
+   * Throws when no verified point exists — the element is obscured
+   * (naming the covering element when known), offscreen, or zero-sized.
+   * There is no silent fallback: use the center of
+   * [`AccessibilityNode.boundingBox`] when an unverified point is
+   * acceptable.
+   */
+  clickablePoint(allowDescendants?: boolean | undefined | null): [number, number]
+  /**
    * Direct child nodes. Throws when the subtree has been torn down or
    * the children attribute is unreadable. (Tree walks — `snapshot`,
    * `scoredSearch`, `childrenCollapsed` — treat such failures as "no
@@ -274,6 +300,15 @@ export declare class AccessibilitySnapshot {
   /** Alias for [`AccessibilitySnapshot.boundingBox`]. */
   getBounds(index: number): BoundingBox
   /**
+   * A screen point where a pointer click actually lands on the element at
+   * `index`, as `[x, y]` in the canonical global-desktop space. Verified
+   * by hit-testing; throws (saying why) when the element has no such
+   * point, instead of guessing a center that would click something else.
+   * See [`AccessibilityNode.clickablePoint`] for the per-platform
+   * behavior and the `allowDescendants` semantics.
+   */
+  clickablePoint(index: number, allowDescendants?: boolean | undefined | null): [number, number]
+  /**
    * Click the element at `index`, dispatching to the platform action that
    * matches its current role:
    *
@@ -420,6 +455,15 @@ export declare class AccessibilityTree {
   focusElement(refId: number): void
   /** Get the live bounding box of an element. */
   getBounds(refId: number): BoundingBox
+  /**
+   * A screen point where a pointer click actually lands on the element,
+   * as `[x, y]` in the canonical global-desktop space. Verified by
+   * hit-testing; throws (saying why) when the element has no such point,
+   * instead of guessing a center that would click something else. See
+   * [`AccessibilityNode.clickablePoint`] for the per-platform behavior
+   * and the `allowDescendants` semantics.
+   */
+  clickablePoint(refId: number, allowDescendants?: boolean | undefined | null): [number, number]
   /** Get the list of supported actions for an element. */
   getSupportedActions(refId: number): Array<string>
   /** Clear all stored element refs. */

@@ -158,6 +158,37 @@ impl AccessibilityNode {
       .map_err(Error::from_reason)
   }
 
+  #[napi]
+  /// A screen point where a pointer click actually lands on this element,
+  /// as `[x, y]` in the canonical global-desktop space (OS-native units;
+  /// see [`Machine`]).
+  ///
+  /// The point is verified by hit-testing: the deepest element at the
+  /// point must be this element. Pass `allowDescendants: true` to also
+  /// accept a point that lands on a node inside this element — useful for
+  /// containers whose surface is fully tiled by their children (a click
+  /// there still clicks the container). A point that lands on an ancestor
+  /// never counts.
+  ///
+  /// Windows asks UIA (`GetClickablePoint`) first; when that fails and
+  /// descendants are allowed, it probes like the other platforms. macOS
+  /// and Linux probe the bounding box the way UIA does (center, edge
+  /// midpoints, sparse grid, diagonal) and hit-test each candidate.
+  /// Android has no hit-test channel and returns the bounds center
+  /// unverified.
+  ///
+  /// Throws when no verified point exists — the element is obscured
+  /// (naming the covering element when known), offscreen, or zero-sized.
+  /// There is no silent fallback: use the center of
+  /// [`AccessibilityNode.boundingBox`] when an unverified point is
+  /// acceptable.
+  pub fn clickable_point(&self, allow_descendants: Option<bool>) -> napi::Result<(i32, i32)> {
+    self
+      .inner
+      .clickable_point(allow_descendants.unwrap_or(false))
+      .map_err(Error::from_reason)
+  }
+
   // ---------------------------------------------------------------
   // tree navigation
   // ---------------------------------------------------------------

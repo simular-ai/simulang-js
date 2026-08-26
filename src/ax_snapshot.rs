@@ -177,6 +177,24 @@ impl AccessibilitySnapshot {
   }
 
   #[napi]
+  /// A screen point where a pointer click actually lands on the element at
+  /// `index`, as `[x, y]` in the canonical global-desktop space. Verified
+  /// by hit-testing; throws (saying why) when the element has no such
+  /// point, instead of guessing a center that would click something else.
+  /// See [`AccessibilityNode.clickablePoint`] for the per-platform
+  /// behavior and the `allowDescendants` semantics.
+  pub fn clickable_point(
+    &self,
+    index: u32,
+    allow_descendants: Option<bool>,
+  ) -> napi::Result<(i32, i32)> {
+    self
+      .inner
+      .clickable_point(index as usize, allow_descendants.unwrap_or(false))
+      .map_err(Error::from_reason)
+  }
+
+  #[napi]
   /// Click the element at `index`, dispatching to the platform action that
   /// matches its current role:
   ///

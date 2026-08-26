@@ -426,6 +426,24 @@ impl AccessibilityTree {
   }
 
   #[napi]
+  /// A screen point where a pointer click actually lands on the element,
+  /// as `[x, y]` in the canonical global-desktop space. Verified by
+  /// hit-testing; throws (saying why) when the element has no such point,
+  /// instead of guessing a center that would click something else. See
+  /// [`AccessibilityNode.clickablePoint`] for the per-platform behavior
+  /// and the `allowDescendants` semantics.
+  pub fn clickable_point(
+    &self,
+    ref_id: u32,
+    allow_descendants: Option<bool>,
+  ) -> napi::Result<(i32, i32)> {
+    self
+      .get_ref(ref_id)?
+      .clickable_point(allow_descendants.unwrap_or(false))
+      .map_err(Error::from_reason)
+  }
+
+  #[napi]
   /// Get the list of supported actions for an element.
   pub fn get_supported_actions(&self, ref_id: u32) -> napi::Result<Vec<String>> {
     Ok(self.get_ref(ref_id)?.supported_action_names())
