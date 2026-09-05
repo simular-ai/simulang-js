@@ -1,4 +1,7 @@
+use std::cell::RefCell;
+
 use napi::Error;
+use napi::bindgen_prelude::{FnArgs, Function};
 use napi_derive::napi;
 use simulang_rs::Node;
 use simulang_rs::traits::{
@@ -32,6 +35,57 @@ impl AccessibilityNode {
   pub(crate) fn from_nodes(nodes: Vec<Node>) -> Vec<Self> {
     nodes.into_iter().map(Self::new).collect()
   }
+}
+
+#[napi]
+#[allow(clippy::needless_pass_by_value)]
+/// Keep `candidates` whose box sits in `relation` to at least one
+/// landmark. Find them however you want (`scoredSearch`, a VLM +
+/// [`Machine.nodeAtPoint`], `find`, …). Candidates with no box are
+/// omitted from the result. Input order is preserved.
+///
+/// Binding for `simulang_rs::search_relative`. `relation` is
+/// `(candidate, landmark) => boolean` — compose the
+/// [`BoundingBox`] predicates however you want:
+///
+/// ```js
+/// const buttons = window.scoredSearch(/* … */, "I'm Feeling Lucky", 0.75)
+/// const fields = window.scoredSearch(/* … */, "Google Search", 0.75)
+/// searchRelative(buttons, fields, (button, field) =>
+///   button.isBelow(field) && button.overlapsX(field)
+/// )
+/// ```
+pub fn search_relative(
+  candidates: Vec<&AccessibilityNode>,
+  landmarks: Vec<&AccessibilityNode>,
+  #[napi(ts_arg_type = "(candidate: BoundingBox, landmark: BoundingBox) => boolean")]
+  relation: Function<FnArgs<(BoundingBox, BoundingBox)>, bool>,
+) -> napi::Result<Vec<AccessibilityNode>> {
+  let candidates = candidates
+    .into_iter()
+    .map(|n| n.inner.clone())
+    .collect::<Vec<_>>();
+  let landmarks = landmarks
+    .into_iter()
+    .map(|n| n.inner.clone())
+    .collect::<Vec<_>>();
+  let err = RefCell::new(None);
+  let kept = simulang_rs::search_relative(candidates, landmarks, |a, b| {
+    if err.borrow().is_some() {
+      return false;
+    }
+    match relation.call((BoundingBox::from(*a), BoundingBox::from(*b)).into()) {
+      Ok(keep) => keep,
+      Err(e) => {
+        *err.borrow_mut() = Some(e);
+        false
+      }
+    }
+  });
+  if let Some(e) = err.into_inner() {
+    return Err(e);
+  }
+  Ok(AccessibilityNode::from_nodes(kept))
 }
 
 #[napi]

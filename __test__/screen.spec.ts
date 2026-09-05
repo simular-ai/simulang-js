@@ -13,7 +13,7 @@ test('bounding_box_is_stable_for_same_screen_instance', () => {
   const screen = Machine.local().mainScreen()
   const first = screen.boundingBox()
   const second = screen.boundingBox()
-  expect(first).toEqual(second)
+  expect(first.equals(second)).toBe(true)
 })
 
 test('all_returns_at_least_one_screen', () => {

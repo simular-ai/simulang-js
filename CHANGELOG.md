@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [13.0.0] - 2026-09-05
+
+### Added
+
+- `searchRelative(candidates, landmarks, relation)` — keep candidates whose box matches a `(candidate, landmark) => boolean` callback against at least one landmark.
+- `BoundingBox` spatial predicates, matching the Rust methods: `isAbove`, `isBelow`, `isLeftOf`, `isRightOf`, `sameRow` / `sameColumn` (center + tolerance), `containsBox`, `isContainedIn`, `containsPoint`, `intersects`, `overlapsX`, `overlapsY`, `shortestDistanceTo`. `equals` compares corners (Rust `Eq`; `===` is still identity). `width` / `height` / `center` / `area` / `overlapArea`, `fromXywh(x, y, width, height)`, and `toString` (Playwright `{x, y, width, height}`).
+
+### Changed
+
+- `BoundingBox` is now a class (`new BoundingBox(left, top, right, bottom)`) with those methods. Corner fields are read-only. `boundingBox()` on windows, nodes, screens, and indexed snapshots returns a class instance. Snapshot / `find` / `findByDescription` nodes expose `boundingBox: BoundingBox | null` (`null` when the platform has no box). `drawBox` takes a `BoundingBox`. A degenerate constructor (`right <= left` or `bottom <= top`) throws.
+
 ## [12.1.1] - 2026-08-28
 
 ## [12.1.0] - 2026-08-26

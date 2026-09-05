@@ -115,11 +115,11 @@ impl Screenshot {
   /// straight in. It covers `[left, right) × [top, bottom)` (`right` / `bottom`
   /// exclusive). The border is `thickness` pixels wide, drawn inset, in the
   /// opaque RGB `(red, green, blue)` color. Pixels that map outside the image
-  /// bounds are silently clipped. Throws when `thickness` is `0` or `bounds` is
-  /// degenerate (`right <= left` or `bottom <= top`).
+  /// bounds are silently clipped. Throws when `thickness` is `0`. A
+  /// [`BoundingBox`] cannot be degenerate (the constructor rejects those).
   pub fn draw_box(
     &mut self,
-    bounds: BoundingBox,
+    bounds: &BoundingBox,
     thickness: u16,
     red: u8,
     green: u8,
@@ -127,7 +127,7 @@ impl Screenshot {
   ) -> napi::Result<()> {
     self
       .inner
-      .draw_box(bounds.try_into()?, thickness, [red, green, blue])
+      .draw_box(bounds.inner, thickness, [red, green, blue])
       .map_err(Error::from_reason)
   }
 

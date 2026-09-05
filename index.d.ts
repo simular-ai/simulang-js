@@ -226,6 +226,27 @@ export declare class AccessibilityNode {
 }
 
 /**
+ * A snapshot node: plain data plus a [`BoundingBox`] when the platform
+ * reported one (`null` otherwise).
+ */
+export declare class AccessibilityNodeJs {
+  get role(): AriaRole
+  get name(): string
+  get className(): string
+  get localizedControlType(): string
+  get description(): string
+  get overallDescription(): string
+  get helpText(): string
+  get value(): string
+  get automationId(): string
+  get isEnabled(): boolean
+  /** Live box when the platform reported one; `null` if it didn't. */
+  get boundingBox(): BoundingBox | null
+  get children(): Array<AccessibilityNodeJs>
+  get refId(): number | null
+}
+
+/**
  * A materialized accessibility snapshot: one pre-order walk of a subtree,
  * stored flat so every node is addressable by a stable index (its "ref").
  *
@@ -734,6 +755,97 @@ export declare class AudioPlayer {
 }
 
 /**
+ * Axis-aligned rectangle. `right` and `bottom` are exclusive (Playwright /
+ * DOM convention), so the box covers `[left, right) × [top, bottom)`.
+ *
+ * Spatial predicates (`isBelow`, `overlapsX`, …) match the Rust methods
+ * and are what you compose in `searchRelative`.
+ */
+export declare class BoundingBox {
+  /**
+   * Construct a box from exclusive-edge coordinates. Throws if the box is
+   * degenerate (`right <= left` or `bottom <= top`).
+   */
+  constructor(left: number, top: number, right: number, bottom: number)
+  /**
+   * Construct from origin + size. Throws if `width` / `height` are not
+   * positive or if `x + width` / `y + height` overflow `i32`.
+   */
+  static fromXywh(x: number, y: number, width: number, height: number): BoundingBox
+  get left(): number
+  get top(): number
+  get right(): number
+  get bottom(): number
+  /** Width (`right - left`). Always positive by construction. */
+  get width(): number
+  /** Height (`bottom - top`). Always positive by construction. */
+  get height(): number
+  /** Geometric center as `[x, y]` (integer-truncated, the pixel midpoint). */
+  center(): [number, number]
+  /** Area in pixels. */
+  area(): number
+  /**
+   * Overlap area with `other` in pixels, `0` when the boxes do not
+   * intersect.
+   */
+  overlapArea(other: BoundingBox): number
+  /** Playwright / DOM shape: `{x: …, y: …, width: …, height: …}`. */
+  toString(): string
+  /**
+   * `true` if both boxes have the same exclusive-edge corners. `===` is
+   * still object identity — two separately constructed boxes with the
+   * same corners need this method.
+   */
+  equals(other: BoundingBox): boolean
+  /**
+   * `true` if this box sits entirely above `other` (no vertical overlap;
+   * exclusive edges that touch still count).
+   */
+  isAbove(other: BoundingBox): boolean
+  /** `true` if this box sits entirely below `other`. See [`isAbove`]. */
+  isBelow(other: BoundingBox): boolean
+  /** `true` if this box sits entirely to the left of `other`. See [`isAbove`]. */
+  isLeftOf(other: BoundingBox): boolean
+  /** `true` if this box sits entirely to the right of `other`. See [`isAbove`]. */
+  isRightOf(other: BoundingBox): boolean
+  /**
+   * `true` if the boxes share a row: centers within `tolerance` on `y`.
+   * `tolerance` is in OS-native units (physical pixels on Windows/Linux,
+   * logical points on macOS).
+   */
+  sameRow(other: BoundingBox, tolerance: number): boolean
+  /** `true` if the boxes share a column: centers within `tolerance` on `x`. */
+  sameColumn(other: BoundingBox, tolerance: number): boolean
+  /** `true` if this box fully encloses `other` (equal boxes count). */
+  containsBox(other: BoundingBox): boolean
+  /** `true` if `other` fully encloses this box. Inverse of [`containsBox`]. */
+  isContainedIn(other: BoundingBox): boolean
+  /**
+   * `true` if the point `(x, y)` lies inside this box. Exclusive `right` /
+   * `bottom` edges are outside.
+   */
+  containsPoint(x: number, y: number): boolean
+  /**
+   * `true` if the boxes' interiors overlap. Exclusive edges that merely
+   * touch do not count.
+   */
+  intersects(other: BoundingBox): boolean
+  /**
+   * `true` if the x-projections overlap (exclusive edges that touch do not).
+   * A narrow button over a wide field typically matches even when centers
+   * do not — compose with [`isAbove`] for "above in this column".
+   */
+  overlapsX(other: BoundingBox): boolean
+  /** `true` if the y-projections overlap. See [`overlapsX`]. */
+  overlapsY(other: BoundingBox): boolean
+  /**
+   * Shortest edge-to-edge distance to `other`, `0` when they touch or
+   * overlap. Rank matches with `Math.min` / `Math.max` on this value.
+   */
+  shortestDistanceTo(other: BoundingBox): number
+}
+
+/**
  * Snapshot of the clipboard's text and/or image content, as returned by
  * [`Machine.setClipboardString`] and [`Machine.setClipboardImage`] — what
  * the clipboard held *before* that write replaced it.
@@ -951,8 +1063,8 @@ export declare class Image {
    * nothing is painted outside it, in the opaque RGB `(red, green, blue)`
    * color. Pixels that fall outside the image bounds are silently clipped, so
    * it is safe to call with a box that extends past the image. Throws when
-   * `thickness` is `0` or `bounds` is degenerate (`right <= left` or
-   * `bottom <= top`).
+   * `thickness` is `0`. A [`BoundingBox`] cannot be degenerate (the
+   * constructor rejects those).
    */
   drawBox(bounds: BoundingBox, thickness: number, red: number, green: number, blue: number): void
   /**
@@ -1683,8 +1795,8 @@ export declare class Screenshot {
    * straight in. It covers `[left, right) × [top, bottom)` (`right` / `bottom`
    * exclusive). The border is `thickness` pixels wide, drawn inset, in the
    * opaque RGB `(red, green, blue)` color. Pixels that map outside the image
-   * bounds are silently clipped. Throws when `thickness` is `0` or `bounds` is
-   * degenerate (`right <= left` or `bottom <= top`).
+   * bounds are silently clipped. Throws when `thickness` is `0`. A
+   * [`BoundingBox`] cannot be degenerate (the constructor rejects those).
    */
   drawBox(bounds: BoundingBox, thickness: number, red: number, green: number, blue: number): void
   /**
@@ -2177,22 +2289,6 @@ export declare class Window {
   ): Array<AccessibilityNode>
 }
 
-export interface AccessibilityNodeJs {
-  role: AriaRole
-  name: string
-  className: string
-  localizedControlType: string
-  description: string
-  overallDescription: string
-  helpText: string
-  value: string
-  automationId: string
-  isEnabled: boolean
-  boundingBox: BoundingBox
-  children: Array<AccessibilityNodeJs>
-  refId?: number
-}
-
 /**
  * Cross-platform ARIA / Playwright role. Used as the `role` field on
  * accessibility snapshots and as the search key in
@@ -2312,17 +2408,6 @@ export interface AudioFormat {
   sampleRate: number
   /** Number of interleaved channels (1 = mono, 2 = stereo). */
   channels: number
-}
-
-/**
- * Axis-aligned rectangle. `right` and `bottom` are exclusive (Playwright /
- * DOM convention), so the box covers `[left, right) × [top, bottom)`.
- */
-export interface BoundingBox {
-  left: number
-  top: number
-  right: number
-  bottom: number
 }
 
 /** Represents a mouse button. */
@@ -2824,6 +2909,30 @@ export declare function legacyTakeScreenshot(needsCompression: boolean, shrinkTo
 
 /** The operating system a [`Machine`] runs. */
 export type Os = 'macos' | 'windows' | 'linux' | 'android'
+
+/**
+ * Keep `candidates` whose box sits in `relation` to at least one
+ * landmark. Find them however you want (`scoredSearch`, a VLM +
+ * [`Machine.nodeAtPoint`], `find`, …). Candidates with no box are
+ * omitted from the result. Input order is preserved.
+ *
+ * Binding for `simulang_rs::search_relative`. `relation` is
+ * `(candidate, landmark) => boolean` — compose the
+ * [`BoundingBox`] predicates however you want:
+ *
+ * ```js
+ * const buttons = window.scoredSearch(/* … *\/, "I'm Feeling Lucky", 0.75)
+ * const fields = window.scoredSearch(/* … *\/, "Google Search", 0.75)
+ * searchRelative(buttons, fields, (button, field) =>
+ *   button.isBelow(field) && button.overlapsX(field)
+ * )
+ * ```
+ */
+export declare function searchRelative(
+  candidates: Array<AccessibilityNode>,
+  landmarks: Array<AccessibilityNode>,
+  relation: (candidate: BoundingBox, landmark: BoundingBox) => boolean,
+): Array<AccessibilityNode>
 
 /** Options for [`AccessibilitySnapshot.toStringWith`]. */
 export interface SnapshotPrintOptions {

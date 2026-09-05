@@ -15,7 +15,7 @@ const mouseEvents: Array<
 > = []
 
 // Test-controllable behavior for the foreground AX tree and vision grounding.
-let axMatches: Array<{ boundingBox: BoundingBox }> = []
+let axMatches: Array<{ boundingBox: BoundingBox | null }> = []
 let groundError = false
 
 // One mock machine mirrors the native `Machine.local()` singleton the sai
@@ -118,7 +118,7 @@ const mockNative = {
   AccessibilityTree: class {
     static fromInstance(): {
       snapshot(): { role: number; name: string; value: string; children: [] }
-      findByDescription(): Array<{ boundingBox: BoundingBox }>
+      findByDescription(): Array<{ boundingBox: BoundingBox | null }>
     } {
       return {
         snapshot: () => ({ role: 0, name: '', value: '', children: [] }),
@@ -271,7 +271,7 @@ test('sai ConceptsExist uses the platform concept resolver for each concept', ()
   // (findByDescription), macOS/Linux via vision-backed synthetic elements. Provide an
   // AX match so the Windows path resolves; grounding already succeeds (groundError is
   // false) for the macOS/Linux path. Either way every concept exists.
-  axMatches = [{ boundingBox: { left: 0, top: 0, right: 10, bottom: 10 } }]
+  axMatches = [{ boundingBox: { left: 0, top: 0, right: 10, bottom: 10 } as BoundingBox }]
   try {
     expect(sai.ConceptsExist({ concepts: ['login button', 'password field'] })).toBe(true)
   } finally {

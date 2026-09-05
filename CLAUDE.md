@@ -33,6 +33,19 @@ restatement elsewhere.
 - Many objects are **handles to platform resources** (windows, audio devices,
   accessibility trees, file/directory handles). Their lifetime matters;
   dropping them can free the underlying resource.
+- **`searchRelative(candidates, landmarks, relation)`** is a free
+  function (same as Rust `search_relative`). Keeps `candidates` whose
+  box sits in a given position relative to at least one landmark — the
+  fixed boxes you measure against. Not a tree walk and not scoped to a
+  window or node. Both arguments are `AccessibilityNode` arrays from
+  any windows or applications — find them with `scoredSearch`, a VLM +
+  `nodeAtPoint`, `find`, or any other means. Boxes are compared in
+  global-desktop coordinates. `relation` is
+  `(candidate, landmark) => boolean` — compose `BoundingBox`
+  predicates however you want (`isBelow` + `overlapsX` = under it,
+  sharing its horizontal span; `sameRow` / `sameColumn` take a
+  tolerance). Candidates with no box are omitted from the result;
+  order is preserved.
 - Coordinates live on the **global desktop**: top-left origin at `(0, 0)` on
   the primary monitor (on Android, the device screen), in **OS-native units**
   — the unit is **not** the same on every platform:

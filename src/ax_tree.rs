@@ -30,52 +30,320 @@ impl From<TraversalOrder> for simulang_rs::TraversalOrder {
   }
 }
 
-#[napi(object)]
+/// A snapshot node: plain data plus a [`BoundingBox`] when the platform
+/// reported one (`null` otherwise).
+#[napi]
 #[derive(Clone)]
 pub struct AccessibilityNodeJs {
-  pub role: AriaRole,
-  pub name: String,
-  pub class_name: String,
-  pub localized_control_type: String,
-  pub description: String,
-  pub overall_description: String,
-  pub help_text: String,
-  pub value: String,
-  pub automation_id: String,
-  pub is_enabled: bool,
-  pub bounding_box: BoundingBox,
-  pub children: Vec<AccessibilityNodeJs>,
-  pub ref_id: Option<u32>,
+  role: AriaRole,
+  name: String,
+  class_name: String,
+  localized_control_type: String,
+  description: String,
+  overall_description: String,
+  help_text: String,
+  value: String,
+  automation_id: String,
+  is_enabled: bool,
+  bounding_box: Option<BoundingBox>,
+  children: Vec<AccessibilityNodeJs>,
+  ref_id: Option<u32>,
+}
+
+#[napi]
+impl AccessibilityNodeJs {
+  #[napi(getter)]
+  #[must_use]
+  pub fn role(&self) -> AriaRole {
+    self.role
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  pub fn name(&self) -> String {
+    self.name.clone()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  pub fn class_name(&self) -> String {
+    self.class_name.clone()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  pub fn localized_control_type(&self) -> String {
+    self.localized_control_type.clone()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  pub fn description(&self) -> String {
+    self.description.clone()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  pub fn overall_description(&self) -> String {
+    self.overall_description.clone()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  pub fn help_text(&self) -> String {
+    self.help_text.clone()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  pub fn value(&self) -> String {
+    self.value.clone()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  pub fn automation_id(&self) -> String {
+    self.automation_id.clone()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  pub fn is_enabled(&self) -> bool {
+    self.is_enabled
+  }
+
+  /// Live box when the platform reported one; `null` if it didn't.
+  #[napi(getter)]
+  #[must_use]
+  pub fn bounding_box(&self) -> Option<BoundingBox> {
+    self.bounding_box.clone()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  pub fn children(&self) -> Vec<AccessibilityNodeJs> {
+    self.children.clone()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  pub fn ref_id(&self) -> Option<u32> {
+    self.ref_id
+  }
 }
 
 /// Axis-aligned rectangle. `right` and `bottom` are exclusive (Playwright /
 /// DOM convention), so the box covers `[left, right) × [top, bottom)`.
-#[napi(object)]
+///
+/// Spatial predicates (`isBelow`, `overlapsX`, …) match the Rust methods
+/// and are what you compose in `searchRelative`.
+#[napi]
 #[derive(Clone)]
 pub struct BoundingBox {
-  pub left: i32,
-  pub top: i32,
-  pub right: i32,
-  pub bottom: i32,
+  pub(crate) inner: simulang_rs::BoundingBox,
 }
 
 impl From<simulang_rs::BoundingBox> for BoundingBox {
-  fn from(b: simulang_rs::BoundingBox) -> Self {
-    Self {
-      left: b.left(),
-      top: b.top(),
-      right: b.right(),
-      bottom: b.bottom(),
-    }
+  fn from(inner: simulang_rs::BoundingBox) -> Self {
+    Self { inner }
   }
 }
 
-impl TryFrom<BoundingBox> for simulang_rs::BoundingBox {
-  type Error = napi::Error;
+#[napi]
+impl BoundingBox {
+  /// Construct a box from exclusive-edge coordinates. Throws if the box is
+  /// degenerate (`right <= left` or `bottom <= top`).
+  #[napi(constructor)]
+  pub fn new(left: i32, top: i32, right: i32, bottom: i32) -> napi::Result<Self> {
+    simulang_rs::BoundingBox::new(left, top, right, bottom)
+      .map(Self::from)
+      .map_err(Error::from_reason)
+  }
 
-  /// Fails when the box is degenerate (`right <= left` or `bottom <= top`).
-  fn try_from(b: BoundingBox) -> Result<Self, Self::Error> {
-    Self::new(b.left, b.top, b.right, b.bottom).map_err(napi::Error::from_reason)
+  /// Construct from origin + size. Throws if `width` / `height` are not
+  /// positive or if `x + width` / `y + height` overflow `i32`.
+  #[napi(factory)]
+  pub fn from_xywh(x: i32, y: i32, width: i32, height: i32) -> napi::Result<Self> {
+    simulang_rs::BoundingBox::from_xywh(x, y, width, height)
+      .map(Self::from)
+      .map_err(Error::from_reason)
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  pub fn left(&self) -> i32 {
+    self.inner.left()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  pub fn top(&self) -> i32 {
+    self.inner.top()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  pub fn right(&self) -> i32 {
+    self.inner.right()
+  }
+
+  #[napi(getter)]
+  #[must_use]
+  pub fn bottom(&self) -> i32 {
+    self.inner.bottom()
+  }
+
+  /// Width (`right - left`). Always positive by construction.
+  #[napi(getter)]
+  #[must_use]
+  pub fn width(&self) -> u32 {
+    self.inner.width()
+  }
+
+  /// Height (`bottom - top`). Always positive by construction.
+  #[napi(getter)]
+  #[must_use]
+  pub fn height(&self) -> u32 {
+    self.inner.height()
+  }
+
+  /// Geometric center as `[x, y]` (integer-truncated, the pixel midpoint).
+  #[napi]
+  #[must_use]
+  pub fn center(&self) -> (i32, i32) {
+    self.inner.center()
+  }
+
+  /// Area in pixels.
+  #[napi]
+  #[must_use]
+  #[allow(clippy::cast_precision_loss)]
+  pub fn area(&self) -> f64 {
+    self.inner.area() as f64
+  }
+
+  /// Overlap area with `other` in pixels, `0` when the boxes do not
+  /// intersect.
+  #[napi]
+  #[must_use]
+  #[allow(clippy::cast_precision_loss)]
+  pub fn overlap_area(&self, other: &BoundingBox) -> f64 {
+    self.inner.overlap_area(&other.inner) as f64
+  }
+
+  /// Playwright / DOM shape: `{x: …, y: …, width: …, height: …}`.
+  #[napi(js_name = "toString")]
+  #[must_use]
+  pub fn as_js_string(&self) -> String {
+    self.inner.to_string()
+  }
+
+  /// `true` if both boxes have the same exclusive-edge corners. `===` is
+  /// still object identity — two separately constructed boxes with the
+  /// same corners need this method.
+  #[napi]
+  #[must_use]
+  pub fn equals(&self, other: &BoundingBox) -> bool {
+    self.inner == other.inner
+  }
+
+  /// `true` if this box sits entirely above `other` (no vertical overlap;
+  /// exclusive edges that touch still count).
+  #[napi]
+  #[must_use]
+  pub fn is_above(&self, other: &BoundingBox) -> bool {
+    self.inner.is_above(&other.inner)
+  }
+
+  /// `true` if this box sits entirely below `other`. See [`isAbove`].
+  #[napi]
+  #[must_use]
+  pub fn is_below(&self, other: &BoundingBox) -> bool {
+    self.inner.is_below(&other.inner)
+  }
+
+  /// `true` if this box sits entirely to the left of `other`. See [`isAbove`].
+  #[napi]
+  #[must_use]
+  pub fn is_left_of(&self, other: &BoundingBox) -> bool {
+    self.inner.is_left_of(&other.inner)
+  }
+
+  /// `true` if this box sits entirely to the right of `other`. See [`isAbove`].
+  #[napi]
+  #[must_use]
+  pub fn is_right_of(&self, other: &BoundingBox) -> bool {
+    self.inner.is_right_of(&other.inner)
+  }
+
+  /// `true` if the boxes share a row: centers within `tolerance` on `y`.
+  /// `tolerance` is in OS-native units (physical pixels on Windows/Linux,
+  /// logical points on macOS).
+  #[napi]
+  #[must_use]
+  pub fn same_row(&self, other: &BoundingBox, tolerance: i32) -> bool {
+    self.inner.same_row(&other.inner, tolerance)
+  }
+
+  /// `true` if the boxes share a column: centers within `tolerance` on `x`.
+  #[napi]
+  #[must_use]
+  pub fn same_column(&self, other: &BoundingBox, tolerance: i32) -> bool {
+    self.inner.same_column(&other.inner, tolerance)
+  }
+
+  /// `true` if this box fully encloses `other` (equal boxes count).
+  #[napi]
+  #[must_use]
+  pub fn contains_box(&self, other: &BoundingBox) -> bool {
+    self.inner.contains_box(&other.inner)
+  }
+
+  /// `true` if `other` fully encloses this box. Inverse of [`containsBox`].
+  #[napi]
+  #[must_use]
+  pub fn is_contained_in(&self, other: &BoundingBox) -> bool {
+    self.inner.is_contained_in(&other.inner)
+  }
+
+  /// `true` if the point `(x, y)` lies inside this box. Exclusive `right` /
+  /// `bottom` edges are outside.
+  #[napi]
+  #[must_use]
+  pub fn contains_point(&self, x: i32, y: i32) -> bool {
+    self.inner.contains_point(x, y)
+  }
+
+  /// `true` if the boxes' interiors overlap. Exclusive edges that merely
+  /// touch do not count.
+  #[napi]
+  #[must_use]
+  pub fn intersects(&self, other: &BoundingBox) -> bool {
+    self.inner.intersects(&other.inner)
+  }
+
+  /// `true` if the x-projections overlap (exclusive edges that touch do not).
+  /// A narrow button over a wide field typically matches even when centers
+  /// do not — compose with [`isAbove`] for "above in this column".
+  #[napi]
+  #[must_use]
+  pub fn overlaps_x(&self, other: &BoundingBox) -> bool {
+    self.inner.overlaps_x(&other.inner)
+  }
+
+  /// `true` if the y-projections overlap. See [`overlapsX`].
+  #[napi]
+  #[must_use]
+  pub fn overlaps_y(&self, other: &BoundingBox) -> bool {
+    self.inner.overlaps_y(&other.inner)
+  }
+
+  /// Shortest edge-to-edge distance to `other`, `0` when they touch or
+  /// overlap. Rank matches with `Math.min` / `Math.max` on this value.
+  #[napi]
+  #[must_use]
+  pub fn shortest_distance_to(&self, other: &BoundingBox) -> f64 {
+    self.inner.shortest_distance_to(&other.inner)
   }
 }
 
@@ -90,15 +358,7 @@ fn snapshot_node(
   let ref_id = u32::try_from(refs.len()).ok()?;
   refs.push(node.clone());
   let children = collect_collapsed_children(node, refs, visible_only);
-  let bounding_box = node.bounding_box().map_or(
-    BoundingBox {
-      left: 0,
-      top: 0,
-      right: 0,
-      bottom: 0,
-    },
-    BoundingBox::from,
-  );
+  let bounding_box = node.bounding_box().ok().map(BoundingBox::from);
   Some(AccessibilityNodeJs {
     role: node.aria_role().into(),
     name: node.title(),
@@ -522,15 +782,7 @@ impl AccessibilityTree {
 
 /// Convert a single node into a flat `AccessibilityNodeJs` (no children).
 fn node_to_js(node: &SimulangNode, ref_id: u32) -> AccessibilityNodeJs {
-  let bounding_box = node.bounding_box().map_or(
-    BoundingBox {
-      left: 0,
-      top: 0,
-      right: 0,
-      bottom: 0,
-    },
-    BoundingBox::from,
-  );
+  let bounding_box = node.bounding_box().ok().map(BoundingBox::from);
   AccessibilityNodeJs {
     role: node.aria_role().into(),
     name: node.title(),

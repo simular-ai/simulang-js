@@ -202,7 +202,7 @@ function getElementByConcept(concept) {
       const { AccessibilityTree } = binding()
       const tree = AccessibilityTree.fromInstance(machine().foregroundApp())
       const [node] = tree.findByDescription(concept)
-      if (node) {
+      if (node?.boundingBox) {
         return { ...node, processId: 0, boundingRect: node.boundingBox, children: [] }
       }
     } catch {
