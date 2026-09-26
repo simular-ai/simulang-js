@@ -1,4 +1,4 @@
-import { test, expect } from 'vitest'
+import { describe, expect, test } from 'vitest'
 
 import { AndroidExtras, Image, Machine } from '../index'
 
@@ -69,52 +69,53 @@ test('android_extras binding exposes phone-only methods', () => {
   expect(typeof AndroidExtras.prototype.setPackageEnabled).toBe('function')
 })
 
-// ── clipboard ──
+// Clipboard is process-global, so these stay ordered even if the file runs concurrently.
+describe('clipboard', { concurrent: false }, () => {
+  test('set_clipboard_string_then_get', () => {
+    const m = Machine.local()
+    m.setClipboardString('clipboard test content')
+    expect(m.getClipboardString()).toBe('clipboard test content')
+  })
 
-test.sequential('set_clipboard_string_then_get', () => {
-  const m = Machine.local()
-  m.setClipboardString('clipboard test content')
-  expect(m.getClipboardString()).toBe('clipboard test content')
+  test('set_clipboard_string_then_clear', () => {
+    const m = Machine.local()
+    m.setClipboardString('clipboard test content')
+    expect(m.getClipboardString()).toBe('clipboard test content')
+    m.clearClipboard()
+    expect(m.getClipboardString()).toBeNull()
+  })
+
+  test('clear_clipboard', () => {
+    const m = Machine.local()
+    m.clearClipboard()
+    expect(m.getClipboardString()).toBeNull()
+  })
+
+  test('set_clipboard_string_overwrites_previous', () => {
+    const m = Machine.local()
+    m.setClipboardString('first')
+    const previous = m.setClipboardString('second')
+    expect(previous.text).toBe('first')
+    expect(m.getClipboardString()).toBe('second')
+  })
+
+  test('set_clipboard_string_with_unicode_roundtrip', () => {
+    const m = Machine.local()
+    const text = 'Unicode: 日本語 café naïve'
+    m.setClipboardString(text)
+    expect(m.getClipboardString()).toBe(text)
+  })
+
+  test('set_clipboard_image_overwrites_string', () => {
+    const m = Machine.local()
+    m.setClipboardString('text before image')
+    const img = Image.fromBase64(SCREENSHOT_CROPPED_BASE64)
+    const previous = m.setClipboardImage(img)
+    expect(previous.text).toBe('text before image')
+    expect(m.getClipboardString()).toBeNull()
+  })
+
+  test.skip('paste_text', () => {})
+
+  test.skip('paste_text_restores_previous_content', () => {})
 })
-
-test.sequential('set_clipboard_string_then_clear', () => {
-  const m = Machine.local()
-  m.setClipboardString('clipboard test content')
-  expect(m.getClipboardString()).toBe('clipboard test content')
-  m.clearClipboard()
-  expect(m.getClipboardString()).toBeNull()
-})
-
-test.sequential('clear_clipboard', () => {
-  const m = Machine.local()
-  m.clearClipboard()
-  expect(m.getClipboardString()).toBeNull()
-})
-
-test.sequential('set_clipboard_string_overwrites_previous', () => {
-  const m = Machine.local()
-  m.setClipboardString('first')
-  const previous = m.setClipboardString('second')
-  expect(previous.text).toBe('first')
-  expect(m.getClipboardString()).toBe('second')
-})
-
-test.sequential('set_clipboard_string_with_unicode_roundtrip', () => {
-  const m = Machine.local()
-  const text = 'Unicode: 日本語 café naïve'
-  m.setClipboardString(text)
-  expect(m.getClipboardString()).toBe(text)
-})
-
-test.sequential('set_clipboard_image_overwrites_string', () => {
-  const m = Machine.local()
-  m.setClipboardString('text before image')
-  const img = Image.fromBase64(SCREENSHOT_CROPPED_BASE64)
-  const previous = m.setClipboardImage(img)
-  expect(previous.text).toBe('text before image')
-  expect(m.getClipboardString()).toBeNull()
-})
-
-test.sequential.skip('paste_text', () => {})
-
-test.sequential.skip('paste_text_restores_previous_content', () => {})

@@ -10,11 +10,21 @@ test('AskModel exposes static factory + introspection methods', () => {
 
 test('AskModel.prototype exposes ask + name accessor', () => {
   expect(typeof AskModel.prototype.ask).toBe('function')
+  expect(typeof AskModel.prototype.askJson).toBe('function')
+  expect(typeof AskModel.jsonSchemaAliases).toBe('function')
   expect(Object.getOwnPropertyDescriptor(AskModel.prototype, 'name')?.get).toBeTypeOf('function')
 })
 
 test('AskModel.byAlias rejects unknown aliases', () => {
   expect(() => AskModel.byAlias('definitely-not-a-real-alias')).toThrow(/alias/)
+})
+
+test('AskModel.jsonSchemaAliases returns a sorted string array', () => {
+  const aliases = AskModel.jsonSchemaAliases()
+  expect(Array.isArray(aliases)).toBe(true)
+  for (const alias of aliases) expect(typeof alias).toBe('string')
+  expect(aliases).toEqual([...aliases].sort())
+  expect(new Set(aliases).size).toBe(aliases.length)
 })
 
 test('AskModel.availableAliases returns a sorted, deduplicated string array', () => {

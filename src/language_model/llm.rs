@@ -93,13 +93,57 @@ impl AskModel {
     text: Option<String>,
     images: Option<Vec<&Image>>,
   ) -> napi::Result<String> {
-    let images_inner: Vec<&simulang_rs::Image> = images
-      .as_ref()
-      .map(|v| v.iter().map(|img| &img.inner).collect())
-      .unwrap_or_default();
+    let images_inner: Vec<&simulang_rs::Image> =
+      images.map_or_default(|v| v.iter().map(|img| &img.inner).collect());
     self
       .inner
       .ask(&prompt, text.as_deref(), &images_inner)
+      .map_err(|e| Error::from_reason(e.to_string()))
+  }
+
+  #[napi]
+  #[must_use]
+  /// LLM aliases whose provider entry sets `json_schema` to true, using the
+  /// same auth filter and first-provider-wins rule as [`AskModel.byAlias`].
+  /// [`AskModel.availableAliases`] still lists every LLM, including models
+  /// that only serve [`AskModel.ask`].
+  pub fn json_schema_aliases() -> Vec<String> {
+    simulang_rs::language_model::AskModel::json_schema_aliases()
+  }
+
+  #[napi]
+  /// Ask the model for one JSON value that matches `schema`.
+  ///
+  /// Same `prompt`, `text`, and `images` as [`AskModel.ask`]. `schema` is a
+  /// JSON Schema document. A caller that has it as text parses it before
+  /// calling. The request sends that document unchanged. `"answer"` is
+  /// only the name the chat API requires on the schema; it is not a key
+  /// in the reply. One call carries one schema.
+  ///
+  /// The schema is compiled locally before the request. The reply is
+  /// parsed and checked against that same schema. A reply that is not
+  /// JSON, or that does not match, throws. A document that is not valid
+  /// JSON Schema throws and no request is sent.
+  ///
+  /// The provider is also asked for strict mode. The local check is what
+  /// decides whether the value is returned. `additionalProperties` and
+  /// `required` are sent exactly as the caller wrote them.
+  ///
+  /// Throws and sends no request when this model does not support it.
+  /// [`AskModel.jsonSchemaAliases`] lists the models that do.
+  #[allow(clippy::needless_pass_by_value)]
+  pub fn ask_json(
+    &self,
+    prompt: String,
+    text: Option<String>,
+    images: Option<Vec<&Image>>,
+    schema: serde_json::Value,
+  ) -> napi::Result<serde_json::Value> {
+    let images_inner: Vec<&simulang_rs::Image> =
+      images.map_or_default(|v| v.iter().map(|img| &img.inner).collect());
+    self
+      .inner
+      .ask_json(&prompt, text.as_deref(), &images_inner, &schema)
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 }

@@ -33,6 +33,8 @@ restatement elsewhere.
 - Many objects are **handles to platform resources** (windows, audio devices,
   accessibility trees, file/directory handles). Their lifetime matters;
   dropping them can free the underlying resource.
+- `AskModel.askJson` returns one JSON value and checks the reply locally against the schema you pass.
+- Decisions are one `DecisionModel.decide(state, questions)` call. Name each question with `noul`, `choice`, or `score`. The same name is a property of the result: `answers.urgent.probability`, `answers.dept.choice`, `answers.severity.nearest()`.
 - **`searchRelative(candidates, landmarks, relation)`** is a free
   function (same as Rust `search_relative`). Keeps `candidates` whose
   box sits in a given position relative to at least one landmark — the

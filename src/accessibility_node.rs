@@ -5,7 +5,7 @@ use napi::bindgen_prelude::{FnArgs, Function};
 use napi_derive::napi;
 use simulang_rs::Node;
 use simulang_rs::traits::{
-  AXNodeActions, AXNodeAncestry, AXNodeSynthetic, AXNodeTrait, BoundingBoxTrait,
+  AXNodeActions, AXNodeSynthetic, AXNodeTrait, Ancestry, BoundingBoxTrait,
 };
 
 use crate::aria_role::AriaRole;

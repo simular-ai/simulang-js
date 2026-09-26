@@ -3,7 +3,7 @@ use napi_derive::napi;
 use simulang_rs::TreeIter;
 use simulang_rs::ax_attribute::attr;
 use simulang_rs::traits::{
-  AXNodeActions, AXNodeAncestry, AXNodeSynthetic, AXNodeTrait, BoundingBoxTrait,
+  AXNodeActions, AXNodeSynthetic, AXNodeTrait, Ancestry, BoundingBoxTrait,
 };
 use simulang_rs::{Instance as SimulangInstance, Node as SimulangNode, Window as SimulangWindow};
 
@@ -382,7 +382,7 @@ fn snapshot_node(
 /// Mirrors the trait-level [`CollapsingDepthFirstIter`] used by
 /// `AXNodeTrait::snapshot()`.
 ///
-/// `AXNodeAncestry::children` returns `Result<Vec<Self>, String>`; per the
+/// `Ancestry::children` returns `Result<Vec<Self>, String>`; per the
 /// trait docs (and the convention used by simulang-rs's own search
 /// walkers) we treat failure as "no children" so a single torn-down
 /// subtree cannot abort the whole snapshot.
@@ -490,7 +490,12 @@ impl AccessibilityTree {
         return Vec::new();
       }
     };
-    TreeIter::new(root, order.into(), collapse_structural)
+    let walk = if collapse_structural {
+      TreeIter::collapsed(root, order.into())
+    } else {
+      TreeIter::new(root, order.into())
+    };
+    walk
       .map(|(n, _)| n)
       .filter(|node| predicate(node))
       .take(max_results.map_or(usize::MAX, |n| n as usize))

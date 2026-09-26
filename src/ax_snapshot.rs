@@ -19,10 +19,6 @@ pub struct SnapshotPrintOptions {
   /// role is not interactive **and** no rendered node exists below it.
   /// Defaults to `false`.
   pub interactive_only: Option<bool>,
-  /// Maximum rendered depth (post-collapse, `0`-based). Nodes deeper than
-  /// this — and their entire subtrees — are dropped. Unset renders all
-  /// depths.
-  pub max_depth: Option<u32>,
   /// Maximum characters per node name; longer names are cut and suffixed
   /// with `…`. Also caps rendered values, which are capped at 80 characters
   /// when this is unset.
@@ -37,7 +33,6 @@ impl From<&SnapshotPrintOptions> for PrintOptions {
         .collapse_structural
         .unwrap_or(defaults.collapse_structural),
       interactive_only: o.interactive_only.unwrap_or(defaults.interactive_only),
-      max_depth: o.max_depth.map(|d| d as usize),
       max_chars: o.max_chars.map(|c| c as usize),
     }
   }

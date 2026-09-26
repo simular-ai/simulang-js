@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [14.0.0] - 2026-09-26
+
+### Added
+
+- `AskModel.askJson(prompt, text, images, schema)` returns one JSON value and checks the reply locally against the schema. A model that does not support it throws before the request. `AskModel.jsonSchemaAliases()` lists the models that do.
+- `DecisionModel.decide(state, questions)` answers a set of `noul`, `choice`, and `score` questions in one call. Each question's name is a property of the result, and `answers.usage` is the reported token usage or `null`.
+
+### Changed
+
+- `SnapshotPrintOptions.maxDepth` is removed. Printed snapshots no longer take a depth cap; the walk stops at a fixed internal depth.
+
 ## [13.0.0] - 2026-09-05
 
 ### Added
