@@ -80,6 +80,14 @@ export declare class AccessibilityNode {
    */
   get url(): string | null
   /**
+   * Keyboard shortcut that activates this node, or `null` when the
+   * platform reports none.
+   *
+   * The string is platform-native (`⌘⇧Z` on macOS, `Ctrl+Shift+Z` on
+   * Windows). Printed snapshots show the same text in brackets.
+   */
+  get shortcut(): string | null
+  /**
    * Live bounding box of the element on the global desktop, in the canonical
    * coordinate space (OS-native units; see [`Machine`]).
    * `right` and `bottom` are exclusive (Playwright / DOM convention).
@@ -249,6 +257,8 @@ export declare class AccessibilityNodeJs {
   get value(): string
   get automationId(): string
   get isEnabled(): boolean
+  /** Keyboard shortcut that activates this node, or `null`. */
+  get shortcut(): string | null
   /** Live box when the platform reported one; `null` if it didn't. */
   get boundingBox(): BoundingBox | null
   get children(): Array<AccessibilityNodeJs>
@@ -613,6 +623,11 @@ export declare class App {
    * locally, the package name on Android.
    */
   get launchTarget(): string | null
+  /**
+   * The running copy of the app, without launching or changing it: `null`
+   * when the app isn't running.
+   */
+  runningInstance(): Instance | null
   /**
    * Opens or switches to the application. If a URL is provided, the URL
    * is opened with this app.
@@ -1532,8 +1547,11 @@ export declare class Machine {
    */
   focusedWindow(): Window | null
   /**
-   * All windows on the machine: visible top-level windows across every
-   * process locally, one window per live task (recents entry) on Android.
+   * All windows on the machine: every window a person can bring on screen,
+   * shown, minimized or covered, across every process, and on Windows and
+   * Linux on any virtual desktop; macOS lists the current Space. The
+   * desktop, taskbars and docks are left out. Android: one window per
+   * live task (recents entry).
    */
   windows(): Array<Window>
   /**
@@ -1584,17 +1602,18 @@ export declare class Machine {
    */
   snapshot(): string
   /**
-   * Every display connected to the machine.
-   *
-   * The order is platform-defined; do not rely on it. Android: the
-   * device's single physical screen.
+   * Every display connected to the machine, in index order: the display
+   * the OS calls primary first, the rest by their top-left corner, left to
+   * right and then top to bottom. Displays mirrored onto one another are
+   * one entry. Each handle stores its index. Android: the device's single
+   * screen.
    */
   screens(): Array<Screen>
   /**
-   * The machine's main display (the primary monitor). Android: the
-   * device screen.
+   * The display the OS calls primary: the one with the menu bar on macOS,
+   * the taskbar on Windows. Android: the device screen.
    */
-  mainScreen(): Screen
+  primaryScreen(): Screen
   /**
    * The display the mouse cursor is currently on (the main screen when
    * the cursor is on none). Android: the device screen — the emulated
@@ -1606,8 +1625,25 @@ export declare class Machine {
    */
   screenFromMouse(): Screen
   /**
+   * Screenshot of the whole desktop: every display in one image.
+   *
+   * The image covers the smallest rectangle that holds every display,
+   * captured as [`screenshotCropped`](Machine::screenshot_cropped) would;
+   * where the arrangement leaves a gap between displays, the image is
+   * transparent black. With one display it is that display's capture, as
+   * from [`Screen.screenshot`]. The [`Screenshot`] knows its box, so
+   * [`Screenshot.toMachineCoordinates`] maps a point in it back to global
+   * desktop coordinates as with any capture.
+   *
+   * Several displays share one image, so each is seen at the scale the
+   * arrangement gives it. Too large a desktop throws. Android: the
+   * device's screen (`hideCursor` is ignored).
+   */
+  screenshot(hideCursor: boolean): Screenshot
+  /**
    * Screenshot of a region of the machine's screen, addressed in the
-   * canonical global desktop coordinates (see [`Machine`]).
+   * canonical global desktop coordinates (see [`Machine`]). Too large a
+   * region throws.
    *
    * Local: a native cropped capture. Android: the full screen is captured
    * and cropped to the region, which must lie entirely within the screen
@@ -1853,13 +1889,50 @@ export declare class ScoreAnswer {
 /**
  * A display of a [`Machine`].
  *
- * Obtain via [`Machine.screens`], [`Machine.mainScreen`],
- * [`Machine.screenFromMouse`], or [`Window.screen`]. A handle pins work to
- * one display: two [`Screen.screenshot`] calls on the same handle always
- * capture the same display, unlike re-resolving the cursor's screen
- * between captures.
+ * Obtain via [`Machine.screens`], [`Machine.primaryScreen`],
+ * [`Machine.screenFromMouse`], [`screen`], or [`Window.screen`]. A
+ * handle pins work to one display: two [`Screen.screenshot`] calls on the
+ * same handle always capture the same display, unlike re-resolving the
+ * cursor's screen between captures.
+ *
+ * A handle stores the id it was opened with (see [`Screen.id`]) and looks
+ * the display up on every call. An index handle follows a place in the
+ * arrangement; a unique id handle follows one physical monitor.
  */
 export declare class Screen {
+  /**
+   * The id this handle was opened with: the display's index (a number)
+   * or a monitor's unique id (a string).
+   */
+  get id(): number | string
+  /**
+   * The display's index now. `0` is the display the OS calls primary; the
+   * rest follow by their top-left corner, left to right and then top to
+   * bottom, the same on every platform. Displays mirrored onto one another
+   * share an index. For an index handle this is the stored index.
+   */
+  index(): number
+  /**
+   * The display's unique id now, or `null` when it reports none: an
+   * Android screen, or a monitor without an identity in its EDID.
+   *
+   * The id follows one physical monitor whatever port it is plugged into
+   * and however the displays are arranged: the PNP manufacturer and
+   * product codes, then the serial number, e.g. `DELA0B1-CN0F1234`.
+   * Identical monitors that report the same identity are told apart in
+   * index order with `#2`, `#3`. Every monitor of a mirror or clone group
+   * has its own id.
+   */
+  uniqueId(): string | null
+  /**
+   * `true` if `other` is a handle to the same machine opened with the
+   * same id. This doesn't ask the OS, so an index handle and a unique id
+   * handle aren't equal even when they name the same display. `===` is
+   * still object identity.
+   */
+  equals(other: Screen): boolean
+  /** The handle's id, e.g. `Screen (index 0)`. */
+  toString(): string
   /**
    * Capture this screen's pixels.
    *
@@ -2103,6 +2176,15 @@ export declare class Window {
   get title(): string
   /** Process ID that owns this window. */
   get pid(): number
+  /**
+   * The platform's own id of the window: the `CGWindowID` on macOS, the
+   * lower 32 bits of the `HWND` on Windows (sign-extending it gives the
+   * handle back), the X11 window id on Linux, the task id on Android.
+   * `null` when the window has none. It stays the same for the life of
+   * the window and isn't reused until the window is gone. Pass it to
+   * [`window`] to get the window back.
+   */
+  get id(): number | null
   /** Root accessibility node for this window. */
   node(): AccessibilityNode
   /**
@@ -2124,7 +2206,7 @@ export declare class Window {
    * minimised to an off-screen state, or on a virtual desktop with no
    * attached display. There is no "correct" screen to pick in that case;
    * callers that prefer a fallback can wrap in `try` / `catch` and call
-   * [`Machine.mainScreen`].
+   * [`Machine.primaryScreen`].
    */
   screen(): Screen
   /**
@@ -2550,6 +2632,61 @@ export declare enum Button {
 }
 
 /**
+ * Whether this process can drive other apps, so mouse and keyboard input
+ * reaches them and actions on their elements work: `null`, or what stands
+ * in the way. Needs everything [`canUseAccessibility`] needs too.
+ *
+ * - macOS: Accessibility is on, as both `AXIsProcessTrusted` and the event
+ *   system read it. A process granted Accessibility after it started can
+ *   read accessibility trees but still be refused input; the reason then
+ *   says to restart it.
+ * - Windows: the same as [`canSee`]. Two things that stand in the way of
+ *   some runs are logged as warnings on the first call, not returned,
+ *   because they depend on what the run meets: an app running as
+ *   administrator refuses input and element actions from a process that is
+ *   neither elevated nor has `UIAccess` (`uiAccess="true"` in the manifest of
+ *   a signed binary in a secure location, which must be the exe hosting
+ *   this module, such as Electron); and where UAC prompts open on the
+ *   secure desktop for this process (the default, unless it has `UIAccess`
+ *   and the policy "Allow `UIAccess` applications to prompt for elevation
+ *   without using the secure desktop" is on), no process can see or control
+ *   them, so a run pauses there until the person answers.
+ * - Linux: the same as [`canSee`], and the AT-SPI bus can be reached.
+ *
+ * On every OS, a display is attached.
+ */
+export declare function canControl(): string | null
+
+/**
+ * Whether screenshots will show what is on screen: `null`, or what stands
+ * in the way and, where there is one, the fix.
+ *
+ * - macOS: Screen Recording is on for the app running this process.
+ * - Windows: the process runs in the user's session (not session 0, where
+ *   services run), the session is connected (not a disconnected Remote
+ *   Desktop session), and the user's desktop takes input (the session isn't
+ *   locked and no UAC or Ctrl+Alt+Del screen is up).
+ * - Linux: the X display can be reached and the session isn't Wayland.
+ *
+ * On every OS, a display is attached: a headless VM or server has nothing
+ * to see.
+ *
+ * Nothing here asks for a permission or opens a prompt. A check that can't
+ * tell doesn't stop a run: it logs a warning and counts as fine.
+ */
+export declare function canSee(): string | null
+
+/**
+ * Whether other apps' accessibility trees can be read and acted on
+ * (pressing, setting values, focusing): `null`, or what stands in the way.
+ *
+ * - macOS: Accessibility is on for the app running this process.
+ * - Windows: the process doesn't run in session 0.
+ * - Linux: the AT-SPI bus can be reached.
+ */
+export declare function canUseAccessibility(): string | null
+
+/**
  * A Choice with a runtime option set: key = what the model returns
  * (e.g. an element ref like `"42"`), value = the description it reads.
  * `null` and `""` both mean no description.
@@ -2602,8 +2739,6 @@ export declare enum FocusPolicy {
   /** Allow the launched app to become active/frontmost. */
   Steal = 1,
 }
-
-export declare function hasScreenCapturePermission(): boolean
 
 /** Aspect ratio of the generated image. */
 export declare enum ImageAspectRatio {
@@ -2702,15 +2837,25 @@ export interface JsLogRecord {
 
 /** Represents a keyboard key. */
 export declare enum Key {
+  /** The `0` key in the main row of digits (not the numpad). Alias: `Digit0`. */
   Num0 = 0,
+  /** The `1` key in the main row of digits (not the numpad). Alias: `Digit1`. */
   Num1 = 1,
+  /** The `2` key in the main row of digits (not the numpad). Alias: `Digit2`. */
   Num2 = 2,
+  /** The `3` key in the main row of digits (not the numpad). Alias: `Digit3`. */
   Num3 = 3,
+  /** The `4` key in the main row of digits (not the numpad). Alias: `Digit4`. */
   Num4 = 4,
+  /** The `5` key in the main row of digits (not the numpad). Alias: `Digit5`. */
   Num5 = 5,
+  /** The `6` key in the main row of digits (not the numpad). Alias: `Digit6`. */
   Num6 = 6,
+  /** The `7` key in the main row of digits (not the numpad). Alias: `Digit7`. */
   Num7 = 7,
+  /** The `8` key in the main row of digits (not the numpad). Alias: `Digit8`. */
   Num8 = 8,
+  /** The `9` key in the main row of digits (not the numpad). Alias: `Digit9`. */
   Num9 = 9,
   A = 10,
   B = 11,
@@ -2744,6 +2889,7 @@ export declare enum Key {
   Add = 39,
   /** alt key on Linux and Windows (option key on macOS) */
   Alt = 40,
+  /** The context menu key. Aliases: `ContextMenu`, `Menu`. */
   Apps = 41,
   Attn = 42,
   /** backspace key */
@@ -2767,21 +2913,29 @@ export declare enum Key {
   ContrastDown = 59,
   /** control key */
   Control = 60,
+  /** The IME `Convert` key (`Henkan` on Japanese keyboards). Alias: `Henkan`. */
   Convert = 61,
   Crsel = 62,
+  /** The `Alphanumeric` / `Eisu` IME key on Japanese keyboards. Aliases: `Eisu`, `Alphanumeric`. */
   DBEAlphanumeric = 63,
+  /** The IME `Code Input` key. Alias: `CodeInput`. */
   DBECodeinput = 64,
   DBEDetermineString = 65,
   DBEEnterDLGConversionMode = 66,
   DBEEnterIMEConfigMode = 67,
   DBEEnterWordRegisterMode = 68,
   DBEFlushString = 69,
+  /** The `Hiragana` IME key on Japanese keyboards. Alias: `Hiragana`. */
   DBEHiragana = 70,
+  /** The `Katakana` IME key on Japanese keyboards. Alias: `Katakana`. */
   DBEKatakana = 71,
   DBENoCodepoint = 72,
   DBENoRoman = 73,
+  /** The `Romaji` IME key on Japanese keyboards. Alias: `Romaji`. */
   DBERoman = 74,
+  /** The `Hankaku` (half-width characters) IME key on Japanese keyboards. Alias: `Hankaku`. */
   DBESBCSChar = 75,
+  /** The `Zenkaku` (full-width characters) IME key on Japanese keyboards. Alias: `Zenkaku`. */
   DBESChar = 76,
   Decimal = 77,
   /** delete key */
@@ -2883,6 +3037,7 @@ export declare enum Key {
   GamepadView = 146,
   GamepadX = 147,
   GamepadY = 148,
+  /** The Hangul mode key on Korean keyboards (same key as `Hangul`). Alias: `HangulMode`. */
   Hangeul = 149,
   Hangul = 150,
   Hanja = 151,
@@ -2898,10 +3053,15 @@ export declare enum Key {
   IMEOff = 160,
   IMEOn = 161,
   Insert = 162,
+  /** The Junja mode key on Korean keyboards. Alias: `JunjaMode`. */
   Junja = 163,
+  /** The Kana mode (Kana lock) key on Japanese keyboards. Alias: `KanaMode`. */
   Kana = 164,
+  /** The Kanji mode key on Japanese keyboards (the `kana` key on JIS Macs). Alias: `KanjiMode`. */
   Kanji = 165,
+  /** The key that launches the first generic application. Alias: `LaunchApplication1`. */
   LaunchApp1 = 166,
+  /** The key that launches the second generic application. Alias: `LaunchApplication2`. */
   LaunchApp2 = 167,
   LaunchMail = 168,
   LaunchMediaSelect = 169,
@@ -2913,8 +3073,10 @@ export declare enum Key {
   /** left arrow key */
   LeftArrow = 174,
   Linefeed = 175,
+  /** The left Alt key (left Option key on macOS). On Linux this presses left Alt; it used to press the context-menu key, which is `Apps`. Alias: `AltLeft`. */
   LMenu = 176,
   LShift = 177,
+  /** The left Windows key (left Command key on macOS, left Super key on Linux). Alias: `MetaLeft`. */
   LWin = 178,
   MButton = 179,
   MediaFast = 180,
@@ -2938,6 +3100,7 @@ export declare enum Key {
   NavigationUp = 196,
   NavigationView = 197,
   NoName = 198,
+  /** The IME `NonConvert` key (`Muhenkan` on Japanese keyboards). Alias: `Muhenkan`. */
   NonConvert = 199,
   None = 200,
   /** Num lock */
@@ -2953,13 +3116,21 @@ export declare enum Key {
   Numpad8 = 210,
   Numpad9 = 211,
   NumpadEnter = 212,
+  /** The `;` `:` key on a US layout. Alias: `Semicolon`. */
   OEM1 = 213,
+  /** The key left of `Z` on ISO keyboards. Alias: `IntlBackslash`. */
   OEM102 = 214,
+  /** The `/` `?` key on a US layout. Alias: `Slash`. */
   OEM2 = 215,
+  /** The `` ` `` `~` key on a US layout. Aliases: `Backquote`, `Grave`. */
   OEM3 = 216,
+  /** The `[` `{` key on a US layout. Alias: `BracketLeft`. */
   OEM4 = 217,
+  /** The `\` `|` key on a US layout. Alias: `Backslash`. */
   OEM5 = 218,
+  /** The `]` `}` key on a US layout. Alias: `BracketRight`. */
   OEM6 = 219,
+  /** The `'` `"` key on a US layout. Aliases: `Quote`, `Apostrophe`. */
   OEM7 = 220,
   OEM8 = 221,
   OEMAttn = 222,
@@ -2967,6 +3138,7 @@ export declare enum Key {
   OEMAx = 224,
   OEMBacktab = 225,
   OEMClear = 226,
+  /** The `,` `<` key on a US layout. Alias: `Comma`. */
   OEMComma = 227,
   OEMCopy = 228,
   OEMCusel = 229,
@@ -2978,12 +3150,15 @@ export declare enum Key {
   OEMFJRoya = 235,
   OEMFJTouroku = 236,
   OEMJump = 237,
+  /** The `-` `_` key on a US layout. Alias: `Minus`. */
   OEMMinus = 238,
   OEMNECEqual = 239,
   OEMPA1 = 240,
   OEMPA2 = 241,
   OEMPA3 = 242,
+  /** The `.` `>` key on a US layout. Alias: `Period`. */
   OEMPeriod = 243,
+  /** The `=` `+` key on a US layout. Alias: `Equal`. */
   OEMPlus = 244,
   OEMReset = 245,
   OEMWsctrl = 246,
@@ -3011,19 +3186,23 @@ export declare enum Key {
   Return = 262,
   /** right arrow key */
   RightArrow = 263,
+  /** The right Alt key (right Option key on macOS). Alias: `AltRight`. */
   RMenu = 264,
   ROption = 265,
   RShift = 266,
+  /** The right Windows key (right Command key on macOS, right Super key on Linux). Alias: `MetaRight`. */
   RWin = 267,
   Scroll = 268,
   ScrollLock = 269,
   Select = 270,
   ScriptSwitch = 271,
+  /** The places separator key on the numpad. Alias: `NumpadComma`. */
   Separator = 272,
   /** shift key */
   Shift = 273,
   /** Lock shift key */
   ShiftLock = 274,
+  /** The sleep / standby key. Alias: `Standby`. */
   Sleep = 275,
   /** space key */
   Space = 276,
@@ -3047,6 +3226,116 @@ export declare enum Key {
   Unicode = 290,
   /** Use `key_other` to provide the raw key value. */
   Other = 291,
+  /** The `AltGr` / `AltGraph` key (ISO level 3 shift). Linux only. Aliases: `AltGr`, `ISO_Level3_Shift`. */
+  AltGraph = 292,
+  /** The `Hyper` modifier key. Linux only. Alias: `Hyper_L`. */
+  Hyper = 293,
+  /** The `Copy` key found on some extended keyboards. Linux only. */
+  Copy = 294,
+  /** The `Cut` key found on some extended keyboards. Linux only. */
+  Cut = 295,
+  /** The `Paste` key found on some extended keyboards. Linux only. */
+  Paste = 296,
+  /** The `Zoom In` key. Linux only. Not the same key as `Zoom`. */
+  ZoomIn = 297,
+  /** The `Zoom Out` key. Linux only. */
+  ZoomOut = 298,
+  /** The `Log Off` key. Linux only. */
+  LogOff = 299,
+  /** The `Hibernate` key. Linux only. */
+  Hibernate = 300,
+  /** The `Wake Up` key. Linux only. */
+  WakeUp = 301,
+  /** The `All Candidates` IME key. Linux only. Alias: `MultipleCandidate`. */
+  AllCandidates = 302,
+  /** The `Compose` key. Linux only. Alias: `Multi_key`. */
+  Compose = 303,
+  /** The IME `Previous Candidate` key. Linux only. */
+  PreviousCandidate = 304,
+  /** The IME `Single Candidate` key. Linux only. */
+  SingleCandidate = 305,
+  /** Switch to the first character group on an ISO/IEC 9995 keyboard. Linux only. Alias: `ISO_First_Group`. */
+  GroupFirst = 306,
+  /** Switch to the last character group on an ISO/IEC 9995 keyboard. Linux only. Alias: `ISO_Last_Group`. */
+  GroupLast = 307,
+  /** Switch to the next character group on an ISO/IEC 9995 keyboard. Linux only. Alias: `ISO_Next_Group`. */
+  GroupNext = 308,
+  /** Switch to the previous character group on an ISO/IEC 9995 keyboard. Linux only. Alias: `ISO_Prev_Group`. */
+  GroupPrevious = 309,
+  /** The `Hiragana/Katakana` toggle key on Japanese keyboards. Linux only. Alias: `Hiragana_Katakana`. */
+  HiraganaKatakana = 310,
+  /** The `Zenkaku/Hankaku` toggle key on Japanese keyboards. Linux only. Alias: `Zenkaku_Hankaku`. */
+  ZenkakuHankaku = 311,
+  /** Media play. Not the play/pause toggle (`MediaPlayPause`) and not the application `Play` key. Linux only. */
+  MediaPlay = 312,
+  /** Media pause. Not the play/pause toggle (`MediaPlayPause`). Linux only. */
+  MediaPause = 313,
+  /** Media record. Linux only. */
+  MediaRecord = 314,
+  /** The `Close` key found on some extended keyboards. Linux only. */
+  Close = 315,
+  /** The `New` (new document) key found on some extended keyboards. Linux only. */
+  New = 316,
+  /** The `Open` (open document) key found on some extended keyboards. Linux only. */
+  Open = 317,
+  /** The `Save` key found on some extended keyboards. Linux only. */
+  Save = 318,
+  /** The `Spell Check` key found on some extended keyboards. Linux only. Alias: `Spell`. */
+  SpellCheck = 319,
+  /** The `Mail Forward` key. Linux only. */
+  MailForward = 320,
+  /** The `Mail Reply` key. Linux only. Alias: `Reply`. */
+  MailReply = 321,
+  /** The `Mail Send` key. Linux only. Alias: `Send`. */
+  MailSend = 322,
+  /** The calculator launcher key. Linux only. Alias: `Calculator`. */
+  LaunchCalculator = 323,
+  /** The calendar launcher key. Linux only. Alias: `Calendar`. */
+  LaunchCalendar = 324,
+  /** The music player launcher key. Linux only. Alias: `Music`. */
+  LaunchMusicPlayer = 325,
+  /** The `My Computer` launcher key. Linux only. Alias: `MyComputer`. */
+  LaunchMyComputer = 326,
+  /** The phone launcher key. Linux only. Alias: `Phone`. */
+  LaunchPhone = 327,
+  /** The screen saver launcher key. Linux only. Alias: `ScreenSaver`. */
+  LaunchScreenSaver = 328,
+  /** The spreadsheet launcher key. Linux only. Alias: `Excel`. */
+  LaunchSpreadsheet = 329,
+  /** The web browser launcher key. Linux only. Alias: `WWW`. */
+  LaunchWebBrowser = 330,
+  /** The webcam launcher key. Linux only. Alias: `WebCam`. */
+  LaunchWebCam = 331,
+  /** The word processor launcher key. Linux only. Alias: `Word`. */
+  LaunchWordProcessor = 332,
+  /** Third generic application launcher key. Linux only. Aliases: `LaunchApplication3`, `Launch2`. */
+  LaunchApp3 = 333,
+  /** Fourth generic application launcher key. Linux only. Aliases: `LaunchApplication4`, `Launch3`. */
+  LaunchApp4 = 334,
+  /** Fifth generic application launcher key. Linux only. Aliases: `LaunchApplication5`, `Launch4`. */
+  LaunchApp5 = 335,
+  /** Sixth generic application launcher key. Linux only. Aliases: `LaunchApplication6`, `Launch5`. */
+  LaunchApp6 = 336,
+  /** Seventh generic application launcher key. Linux only. Aliases: `LaunchApplication7`, `Launch6`. */
+  LaunchApp7 = 337,
+  /** Eighth generic application launcher key. Linux only. Aliases: `LaunchApplication8`, `Launch7`. */
+  LaunchApp8 = 338,
+  /** Ninth generic application launcher key. Linux only. Aliases: `LaunchApplication9`, `Launch8`. */
+  LaunchApp9 = 339,
+  /** Tenth generic application launcher key. Linux only. Aliases: `LaunchApplication10`, `Launch9`. */
+  LaunchApp10 = 340,
+  /** Eleventh generic application launcher key. Linux only. Aliases: `LaunchApplication11`, `LaunchA`. */
+  LaunchApp11 = 341,
+  /** Twelfth generic application launcher key. Linux only. Aliases: `LaunchApplication12`, `LaunchB`. */
+  LaunchApp12 = 342,
+  /** Thirteenth generic application launcher key. Linux only. Aliases: `LaunchApplication13`, `LaunchC`. */
+  LaunchApp13 = 343,
+  /** Fourteenth generic application launcher key. Linux only. Aliases: `LaunchApplication14`, `LaunchD`. */
+  LaunchApp14 = 344,
+  /** Fifteenth generic application launcher key. Linux only. Aliases: `LaunchApplication15`, `LaunchE`. */
+  LaunchApp15 = 345,
+  /** Sixteenth generic application launcher key. Linux only. Aliases: `LaunchApplication16`, `LaunchF`. */
+  LaunchApp16 = 346,
 }
 
 /** Convert a string representation into a `Key`. */
@@ -3100,6 +3389,15 @@ export declare enum QuestionKind {
 }
 
 /**
+ * Release keys this process is holding and drop its input connection.
+ *
+ * The next key, mouse, or scroll call connects again. On Linux this also
+ * unbinds the keycodes that connection reserved. An exit handler does the
+ * same when the process quits.
+ */
+export declare function releaseInput(): void
+
+/**
  * A Score with runtime levels. Levels are ordered spectrum positions,
  * each described by its text. The answer's probabilities come back keyed
  * by these texts.
@@ -3115,6 +3413,17 @@ export interface ScoreQuestion {
   /** Ordered spectrum positions, each described by its text. */
   levels: Array<string>
 }
+
+/**
+ * The display of `machine` with this id, or `null` when no connected
+ * display has it.
+ *
+ * `id` is an index (a number) or a unique id (a string); see [`Screen.id`].
+ * The handle stores it as given: an index handle follows a place in the
+ * arrangement, a unique id handle follows one physical monitor whatever
+ * port it is plugged into.
+ */
+export declare function screen(machine: Machine, id: number | string): Screen | null
 
 /**
  * Keep `candidates` whose box sits in `relation` to at least one
@@ -3188,3 +3497,9 @@ export declare enum Visibility {
   /** Launch in a visible state. */
   Show = 1,
 }
+
+/**
+ * The window of `machine` with this [`Window.id`], or `null` once no live
+ * window has it.
+ */
+export declare function window(machine: Machine, id: number): Window | null

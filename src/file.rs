@@ -40,19 +40,19 @@ impl File {
     f(inner).map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// The file's path on its machine, as a string.
   pub fn path(&self) -> napi::Result<String> {
     self.with_inner(|f| Ok(f.path()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Reads the file and returns its trimmed contents.
   pub fn read(&self) -> napi::Result<String> {
     self.with_inner(SimulangFile::read)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Writes content to the file, overwriting it — or appending, with a
   /// newline inserted first when the file already has content. Parent
   /// directories are created if needed.
@@ -61,7 +61,7 @@ impl File {
     self.with_inner(|f| f.write(&content, append))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Renames the file in place (same parent directory). `newName` must
   /// be a single filename component.
   #[allow(clippy::needless_pass_by_value)]
@@ -69,7 +69,7 @@ impl File {
     self.with_inner_mut(|f| f.rename(&new_name))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Copies the file to `dest` on the same machine, returning a handle
   /// to the copy. Fails when `dest` already exists.
   ///
@@ -82,7 +82,7 @@ impl File {
     self.with_inner(|f| f.copy_to(&dest)).map(Self::new)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Moves the file to `dest` on the same machine. Fails when `dest`
   /// already exists. Path resolution as in [`File.copyTo`].
   #[allow(clippy::needless_pass_by_value)]
@@ -90,7 +90,7 @@ impl File {
     self.with_inner_mut(|f| f.move_to(&dest))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Deletes the file, invalidating the handle.
   pub fn delete(&self) -> napi::Result<()> {
     let inner = self
@@ -101,26 +101,26 @@ impl File {
     inner.delete().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// The file name (last component of the path).
   pub fn name(&self) -> napi::Result<String> {
     self.with_inner(|f| Ok(f.name().to_owned()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// The file extension, if any.
   pub fn extension(&self) -> napi::Result<Option<String>> {
     self.with_inner(|f| Ok(f.extension().map(ToOwned::to_owned)))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// The file size in bytes.
   pub fn size(&self) -> napi::Result<i64> {
     #[allow(clippy::cast_possible_wrap)]
     self.with_inner(|f| f.size().map(|s| s as i64))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// The last modification time as milliseconds since the Unix epoch.
   #[allow(clippy::cast_precision_loss)]
   pub fn modified(&self) -> napi::Result<f64> {
@@ -133,7 +133,7 @@ impl File {
     })
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Whether the file is read-only.
   pub fn is_readonly(&self) -> napi::Result<bool> {
     self.with_inner(SimulangFile::is_readonly)

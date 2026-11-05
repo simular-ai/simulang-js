@@ -61,7 +61,7 @@ console.log(`[text only]\n${summary}\n`)
 
 // 3. Image-only — full screenshot of the main display. Resolve the screen
 //    handle once so both captures below are pinned to the same display.
-const screen = machine.mainScreen()
+const screen = machine.primaryScreen()
 const shotA = screen.screenshot(true)
 shotA.shrink(1024, 1024)
 shotA.compress(80)

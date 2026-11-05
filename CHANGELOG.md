@@ -7,6 +7,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [15.0.1] - 2026-11-05
+
+## [15.0.0] - 2026-11-05
+
+## [15.0.0-rc3] - 2026-11-05
+
+### Changed
+
+- `machine.screenshotCropped` and `machine.screenshot` no longer refuse a capture over 10,000 wide or tall; a wide desktop of several displays, such as two 5K monitors side by side on Windows, is captured now. What is refused is a capture too large to allocate.
+
+## [15.0.0-rc2] - 2026-11-04
+
+### Added
+
+- `machine.screenshot(hideCursor)` captures the whole desktop as one image: the smallest rectangle that holds every display, transparent black where the arrangement leaves a gap, and with one display the same capture as `screen.screenshot(hideCursor)`. Points in it map back to global desktop coordinates as with any capture. A grounder or an observer that should see every display no longer has to take the union of the screens' boxes itself and pass it to `screenshotCropped`.
+
+## [15.0.0-rc1] - 2026-11-04
+
+### Added
+
+- `canSee()`, `canUseAccessibility()`, and `canControl()` tell, before a run, whether this process can see the screen, use other apps' accessibility trees (read them and act on their elements), and control other apps with the mouse, the keyboard, and element actions. Each returns `null`, or a reason that names what stands in the way and, where there is one, the fix. None of them opens a permission prompt. On macOS they read the Screen Recording and Accessibility permissions. On Windows they catch a process in session 0, a disconnected Remote Desktop session, and a locked session or UAC screen; on Linux, an unreachable X display, a Wayland session, and an unreachable AT-SPI bus. On every OS, a machine with no display attached can neither see nor control.
+
+- `window.id` is the platform's own id of a window (`CGWindowID`, the lower 32 bits of the `HWND`, the X11 window id, the Android task id), or `null`, and `window(machine, id)` finds the live window with it again, or returns `null` once none has it.
+- `screen.id` is what a `Screen` handle was opened with: its index, or a monitor's unique id. `screen.index()` and `screen.uniqueId()` answer for the display it names now; the unique id follows one physical monitor whatever port it is plugged into, from its EDID, e.g. `DELA0B1-CN0F1234`, with every monitor of a mirror or clone group getting its own. `screen(machine, id)` opens a display by either kind of id, or returns `null` when none has it.
+- `screen.equals(other)` and `String(screen)` compare and print handles by the id they were opened with.
+- `app.runningInstance()` is the running copy of an app, or `null`, without launching or changing it.
+
+### Removed
+
+- `hasScreenCapturePermission()`. It only answered for macOS and was `true` everywhere else. Use `canSee()` instead, which also catches what stops screenshots on Windows and Linux.
+
+### Changed
+
+- `machine.mainScreen()` is `machine.primaryScreen()`, named like the Rust API: the display the OS calls primary.
+- Screenshots fail with the reason `canSee()` gives when it finds something in the way, instead of returning a black or wrong picture (a locked or disconnected Windows session, a Wayland session, no display). On macOS, errors from a disabled accessibility API say where to turn Accessibility on.
+- On Windows, `canControl()` logs a warning, once per process, for what will stand in the way of some runs without being a refusal: UAC prompts that open on the secure desktop, which no process can see or control, and apps running as administrator, which refuse input from a process that is neither elevated nor has UIAccess.
+- `machine.screens()` lists displays in the same order on every platform: the display the OS calls primary first, the rest by their top-left corner, left to right and then top to bottom. Displays mirrored onto one another are one entry.
+- `window.boundingBox()` on Windows and Linux is the window as drawn on screen: with its title bar and frame, without shadows or invisible resize borders, the same area `window.screenshot()` captures and the origin window-local input counts from. It used to be whatever the app reported on Windows and the bare client area on Linux. On Linux, an app that draws its own title bar keeps its own box.
+- `machine.windows()` and `instance.windows()` hold every window a person can bring on screen: shown, minimized or covered, and on Windows and Linux on any virtual desktop; macOS lists the current Space. They leave out the desktop, taskbars and docks, and on Windows also cloaked windows the user can't see and click-through windows that are never activated. On macOS, windows of processes that aren't registered apps, such as floating tool windows, are listed too.
+- `window.screenshot()` on macOS throws when the window's id can't be read, after asking once more. It used to capture the window's region of the display instead, which includes whatever covers the window.
+
+### Fixed
+
+- On macOS, `instance.isFocused()`, `isRunning()` and the other app state reads answer for the moment of the call. They used to come from a snapshot AppKit refreshes only while a main run loop runs, which Node never does.
+- On macOS, `app.open` with `waitForLoadComplete` also waits, for up to two seconds, until Accessibility lists the app's window, so `instance.windows()` and the accessibility tree aren't empty right after it returns.
+- `instance.focus()` and `window.focus()` on macOS return only once the app is active, within a second, and `false` when it isn't. `app.open` with `Steal` waits the same way. They used to return while the activation was still queued.
+- `app.open` with `Visibility.Hidden` on macOS returns only once the app is hidden, and hides an already-running app without reopening it, which used to bring a minimized window back.
+- On macOS, `app.open` skips Chrome's first-run screens, as on Linux, and retries a launch that fails with LaunchServices' unknown error (-10810) right after the app quit, for up to a second.
+- On Windows, `app.open` of an already-running app restores its minimized window and, with `FocusPolicy.Steal`, focuses it. Single-instance apps such as Notepad hand a second launch to the running copy, whose window used to stay in the taskbar.
+- On Windows, `window.focus()` and `instance.focus()` get past the foreground lock, which refuses focus to a process that didn't receive the last input and only flashes the taskbar button.
+- On Linux, `window.boundingBox()` of a window the window manager draws no frame around, such as Chrome under Metacity, is the window itself instead of an error.
+
+## [14.1.0-rc1] - 2026-10-28
+
+### Added
+
+- `AccessibilityNode.shortcut` is the keyboard shortcut that activates the element, or `null`. Printed snapshots show the same text in brackets. Snapshot nodes from an accessibility tree expose it too.
+- `releaseInput()` releases keys this process is holding and drops its input connection. The next key or mouse call connects again.
+- `Key` gains Linux-only members for keys the desktop can simulate: `Copy`, `Cut`, `Paste`, `ZoomIn`, `ZoomOut`, `MediaPlay`, `MediaPause`, `MediaRecord`, document keys (`Close`, `New`, `Open`, `Save`, `SpellCheck`, `MailForward`, `MailReply`, `MailSend`), launcher keys (`LaunchCalculator`, `LaunchCalendar`, `LaunchMusicPlayer`, `LaunchMyComputer`, `LaunchPhone`, `LaunchScreenSaver`, `LaunchSpreadsheet`, `LaunchWebBrowser`, `LaunchWebCam`, `LaunchWordProcessor`, `LaunchApp3`–`LaunchApp16`), IME group keys (`AllCandidates`, `Compose`, `PreviousCandidate`, `SingleCandidate`, `GroupFirst`, `GroupLast`, `GroupNext`, `GroupPrevious`, `HiraganaKatakana`, `ZenkakuHankaku`), and `AltGraph`, `Hyper`, `LogOff`, `Hibernate`, `WakeUp`.
+
+### Changed
+
+- On Linux, `App.open` starts each app in its own systemd user scope. `Instance.close` and `kill` reach the app's whole process tree, `isRunning`, `pid` and `windows` see all of its processes, and a host running as a systemd service can restart without taking its apps down. Set `SIMULANG_APP_SCOPE=off` to launch without a scope.
+- On Linux, `Instance.isAccessible()` is true when one of the app's windows answers accessibility within 500 ms. It used to throw.
+
+### Fixed
+
+- On GNOME and COSMIC, opening an app no longer turns on the session screen reader. Apps that only publish a full accessibility tree while a screen reader is running stay in the tree, and key events are not forwarded to one.
+- On Linux, `Machine.foregroundApp()`, `Instance.content()`, and `Machine.loopback()` throw when the platform does not support them, instead of panicking.
+- On Linux, typing a shifted character holds Shift.
+- `Machine.key` accepts letter, digit, and US punctuation keys on Linux. On macOS it accepts punctuation, `NumpadEnter`, `Clear`, `Apps`, and the Windows-style modifier names `LWin`, `RWin`, `LMenu`, and `RMenu`. Browser, launch, sleep, IME, and 3270 keys, plus `Scroll`, `ScrollLock`, `Break`, `SysReq`, and `ScriptSwitch`, are available on Linux as well as the other platform that already had them.
+- `Key.LMenu` presses left Alt on Linux. It used to press the context-menu key; use `Key.Apps` for that key.
+- `keyFromString` accepts a single punctuation character (`-`, `=`, `,`, `.`, `;`, `/`, `` ` ``, `[`, `\`, `]`, `'`) and the names of the new keys.
+- The Windows addon no longer needs the Microsoft Visual C++ Redistributable (`VCRUNTIME140.dll`) to load.
+- On Linux, accessibility snapshots and trees of a Chrome window include the web page, not only the browser UI.
+- On Linux, reading the accessibility tree of a Chrome page with a slider no longer crashes Chrome.
+- On Linux, accessibility snapshots and trees of GTK message dialogs and file, color and font choosers show the dialog. They used to fail or show the app's main window.
+- On Linux, GTK menus list their items in the order they are shown.
+- `Image.fromBase64` turns JPEG, WebP and PNG images upright according to their EXIF orientation.
+- A panic in a native function or method throws a JavaScript `Error` with the panic message instead of aborting the Node process.
+- Screenshots work below macOS 14, where they used to abort the Node process. They are taken with CoreGraphics there, and the cursor is drawn in unless it is hidden.
+- `Machine.loopback` throws an error below macOS 13, which can't capture system audio, instead of aborting the Node process.
+- Screenshots on macOS free the objects they create. Each one used to leave about ten alive until the process exited.
+- The macOS addon loads on macOS 10.15 and later. Below 12.3 it used to fail to load, because it linked ScreenCaptureKit (macOS 12.3+) as required.
+
 ## [14.0.0] - 2026-09-26
 
 ### Added

@@ -45,6 +45,7 @@ pub struct AccessibilityNodeJs {
   value: String,
   automation_id: String,
   is_enabled: bool,
+  shortcut: Option<String>,
   bounding_box: Option<BoundingBox>,
   children: Vec<AccessibilityNodeJs>,
   ref_id: Option<u32>,
@@ -52,80 +53,87 @@ pub struct AccessibilityNodeJs {
 
 #[napi]
 impl AccessibilityNodeJs {
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn role(&self) -> AriaRole {
     self.role
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn name(&self) -> String {
     self.name.clone()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn class_name(&self) -> String {
     self.class_name.clone()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn localized_control_type(&self) -> String {
     self.localized_control_type.clone()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn description(&self) -> String {
     self.description.clone()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn overall_description(&self) -> String {
     self.overall_description.clone()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn help_text(&self) -> String {
     self.help_text.clone()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn value(&self) -> String {
     self.value.clone()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn automation_id(&self) -> String {
     self.automation_id.clone()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn is_enabled(&self) -> bool {
     self.is_enabled
   }
 
+  #[napi(getter, catch_unwind)]
+  #[must_use]
+  /// Keyboard shortcut that activates this node, or `null`.
+  pub fn shortcut(&self) -> Option<String> {
+    self.shortcut.clone()
+  }
+
   /// Live box when the platform reported one; `null` if it didn't.
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn bounding_box(&self) -> Option<BoundingBox> {
     self.bounding_box.clone()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn children(&self) -> Vec<AccessibilityNodeJs> {
     self.children.clone()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn ref_id(&self) -> Option<u32> {
     self.ref_id
@@ -153,7 +161,7 @@ impl From<simulang_rs::BoundingBox> for BoundingBox {
 impl BoundingBox {
   /// Construct a box from exclusive-edge coordinates. Throws if the box is
   /// degenerate (`right <= left` or `bottom <= top`).
-  #[napi(constructor)]
+  #[napi(constructor, catch_unwind)]
   pub fn new(left: i32, top: i32, right: i32, bottom: i32) -> napi::Result<Self> {
     simulang_rs::BoundingBox::new(left, top, right, bottom)
       .map(Self::from)
@@ -162,60 +170,60 @@ impl BoundingBox {
 
   /// Construct from origin + size. Throws if `width` / `height` are not
   /// positive or if `x + width` / `y + height` overflow `i32`.
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   pub fn from_xywh(x: i32, y: i32, width: i32, height: i32) -> napi::Result<Self> {
     simulang_rs::BoundingBox::from_xywh(x, y, width, height)
       .map(Self::from)
       .map_err(Error::from_reason)
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn left(&self) -> i32 {
     self.inner.left()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn top(&self) -> i32 {
     self.inner.top()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn right(&self) -> i32 {
     self.inner.right()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn bottom(&self) -> i32 {
     self.inner.bottom()
   }
 
   /// Width (`right - left`). Always positive by construction.
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn width(&self) -> u32 {
     self.inner.width()
   }
 
   /// Height (`bottom - top`). Always positive by construction.
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn height(&self) -> u32 {
     self.inner.height()
   }
 
   /// Geometric center as `[x, y]` (integer-truncated, the pixel midpoint).
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   pub fn center(&self) -> (i32, i32) {
     self.inner.center()
   }
 
   /// Area in pixels.
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   #[allow(clippy::cast_precision_loss)]
   pub fn area(&self) -> f64 {
@@ -224,7 +232,7 @@ impl BoundingBox {
 
   /// Overlap area with `other` in pixels, `0` when the boxes do not
   /// intersect.
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   #[allow(clippy::cast_precision_loss)]
   pub fn overlap_area(&self, other: &BoundingBox) -> f64 {
@@ -232,7 +240,7 @@ impl BoundingBox {
   }
 
   /// Playwright / DOM shape: `{x: …, y: …, width: …, height: …}`.
-  #[napi(js_name = "toString")]
+  #[napi(js_name = "toString", catch_unwind)]
   #[must_use]
   pub fn as_js_string(&self) -> String {
     self.inner.to_string()
@@ -241,7 +249,7 @@ impl BoundingBox {
   /// `true` if both boxes have the same exclusive-edge corners. `===` is
   /// still object identity — two separately constructed boxes with the
   /// same corners need this method.
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   pub fn equals(&self, other: &BoundingBox) -> bool {
     self.inner == other.inner
@@ -249,28 +257,28 @@ impl BoundingBox {
 
   /// `true` if this box sits entirely above `other` (no vertical overlap;
   /// exclusive edges that touch still count).
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   pub fn is_above(&self, other: &BoundingBox) -> bool {
     self.inner.is_above(&other.inner)
   }
 
   /// `true` if this box sits entirely below `other`. See [`isAbove`].
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   pub fn is_below(&self, other: &BoundingBox) -> bool {
     self.inner.is_below(&other.inner)
   }
 
   /// `true` if this box sits entirely to the left of `other`. See [`isAbove`].
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   pub fn is_left_of(&self, other: &BoundingBox) -> bool {
     self.inner.is_left_of(&other.inner)
   }
 
   /// `true` if this box sits entirely to the right of `other`. See [`isAbove`].
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   pub fn is_right_of(&self, other: &BoundingBox) -> bool {
     self.inner.is_right_of(&other.inner)
@@ -279,28 +287,28 @@ impl BoundingBox {
   /// `true` if the boxes share a row: centers within `tolerance` on `y`.
   /// `tolerance` is in OS-native units (physical pixels on Windows/Linux,
   /// logical points on macOS).
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   pub fn same_row(&self, other: &BoundingBox, tolerance: i32) -> bool {
     self.inner.same_row(&other.inner, tolerance)
   }
 
   /// `true` if the boxes share a column: centers within `tolerance` on `x`.
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   pub fn same_column(&self, other: &BoundingBox, tolerance: i32) -> bool {
     self.inner.same_column(&other.inner, tolerance)
   }
 
   /// `true` if this box fully encloses `other` (equal boxes count).
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   pub fn contains_box(&self, other: &BoundingBox) -> bool {
     self.inner.contains_box(&other.inner)
   }
 
   /// `true` if `other` fully encloses this box. Inverse of [`containsBox`].
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   pub fn is_contained_in(&self, other: &BoundingBox) -> bool {
     self.inner.is_contained_in(&other.inner)
@@ -308,7 +316,7 @@ impl BoundingBox {
 
   /// `true` if the point `(x, y)` lies inside this box. Exclusive `right` /
   /// `bottom` edges are outside.
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   pub fn contains_point(&self, x: i32, y: i32) -> bool {
     self.inner.contains_point(x, y)
@@ -316,7 +324,7 @@ impl BoundingBox {
 
   /// `true` if the boxes' interiors overlap. Exclusive edges that merely
   /// touch do not count.
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   pub fn intersects(&self, other: &BoundingBox) -> bool {
     self.inner.intersects(&other.inner)
@@ -325,14 +333,14 @@ impl BoundingBox {
   /// `true` if the x-projections overlap (exclusive edges that touch do not).
   /// A narrow button over a wide field typically matches even when centers
   /// do not — compose with [`isAbove`] for "above in this column".
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   pub fn overlaps_x(&self, other: &BoundingBox) -> bool {
     self.inner.overlaps_x(&other.inner)
   }
 
   /// `true` if the y-projections overlap. See [`overlapsX`].
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   pub fn overlaps_y(&self, other: &BoundingBox) -> bool {
     self.inner.overlaps_y(&other.inner)
@@ -340,7 +348,7 @@ impl BoundingBox {
 
   /// Shortest edge-to-edge distance to `other`, `0` when they touch or
   /// overlap. Rank matches with `Math.min` / `Math.max` on this value.
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   pub fn shortest_distance_to(&self, other: &BoundingBox) -> f64 {
     self.inner.shortest_distance_to(&other.inner)
@@ -370,6 +378,7 @@ fn snapshot_node(
     value: node.value(),
     automation_id: node.automation_id(),
     is_enabled: node.is_enabled(),
+    shortcut: node.shortcut().filter(|shortcut| !shortcut.is_empty()),
     bounding_box,
     children,
     ref_id: Some(ref_id),
@@ -510,7 +519,7 @@ impl AccessibilityTree {
 
 #[napi]
 impl AccessibilityTree {
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// Create an accessibility tree bound to a running application instance
   /// (from [`Machine.foregroundApp`], [`App.open`], …). The instance
   /// carries its machine, so the tree targets whatever machine — local
@@ -544,7 +553,7 @@ impl AccessibilityTree {
     Ok(Self::from_root(root))
   }
 
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   #[must_use]
   /// Create an accessibility tree scoped to a single window.
   ///
@@ -561,7 +570,7 @@ impl AccessibilityTree {
     Self::from_root(Root::Window(window.inner.clone()))
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Get the window title (empty when it cannot be resolved).
   ///
@@ -578,7 +587,7 @@ impl AccessibilityTree {
     }
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Take a snapshot of the tree.
   ///
   /// Re-resolves the root so each call sees current data. On Windows the
@@ -604,13 +613,13 @@ impl AccessibilityTree {
       .ok_or_else(|| Error::from_reason("Root element is not visible".to_owned()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Invoke/click an element (button, link, menuitem).
   pub fn activate(&self, ref_id: u32) -> napi::Result<()> {
     self.get_ref(ref_id)?.activate().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Set the text value of an element (textbox, combobox).
   #[allow(clippy::needless_pass_by_value)]
   pub fn set_value(&self, ref_id: u32, value: String) -> napi::Result<()> {
@@ -620,19 +629,19 @@ impl AccessibilityTree {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Toggle a checkbox or switch.
   pub fn toggle(&self, ref_id: u32) -> napi::Result<()> {
     self.get_ref(ref_id)?.toggle().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Select a tab, radio button, or list item.
   pub fn select(&self, ref_id: u32) -> napi::Result<()> {
     self.get_ref(ref_id)?.select().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Expand or collapse a dropdown or tree item.
   pub fn expand_collapse(&self, ref_id: u32) -> napi::Result<()> {
     self
@@ -641,7 +650,7 @@ impl AccessibilityTree {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Open an element's context menu — the semantic equivalent of a
   /// right-click, without synthesizing pointer input, so it works on
   /// background / obscured windows (Windows `ShowContextMenu`, macOS
@@ -662,7 +671,7 @@ impl AccessibilityTree {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Scroll an element into view.
   pub fn scroll_into_view(&self, ref_id: u32) -> napi::Result<()> {
     self
@@ -671,7 +680,7 @@ impl AccessibilityTree {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Focus an element (brings window to foreground).
   pub fn focus_element(&self, ref_id: u32) -> napi::Result<()> {
     self
@@ -680,7 +689,7 @@ impl AccessibilityTree {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Get the live bounding box of an element.
   pub fn get_bounds(&self, ref_id: u32) -> napi::Result<BoundingBox> {
     self
@@ -690,7 +699,7 @@ impl AccessibilityTree {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// A screen point where a pointer click actually lands on the element,
   /// as `[x, y]` in the canonical global-desktop space. Verified by
   /// hit-testing; throws (saying why) when the element has no such point,
@@ -708,19 +717,19 @@ impl AccessibilityTree {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Get the list of supported actions for an element.
   pub fn get_supported_actions(&self, ref_id: u32) -> napi::Result<Vec<String>> {
     Ok(self.get_ref(ref_id)?.supported_action_names())
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Clear all stored element refs.
   pub fn clear_refs(&mut self) {
     self.refs.clear();
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Search the tree using the chosen traversal order.
   ///
   /// - `order` – `TraversalOrder.DepthFirst` or `TraversalOrder.BreadthFirst`
@@ -770,7 +779,7 @@ impl AccessibilityTree {
     )
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Find every node whose `overallDescription`
   /// (`AXNodeSynthetic::summary_with_context`) is **exactly** equal to
   /// `description`, walked in pre-order depth-first.
@@ -799,6 +808,7 @@ fn node_to_js(node: &SimulangNode, ref_id: u32) -> AccessibilityNodeJs {
     value: node.value(),
     automation_id: node.automation_id(),
     is_enabled: node.is_enabled(),
+    shortcut: node.shortcut().filter(|shortcut| !shortcut.is_empty()),
     bounding_box,
     children: Vec::new(),
     ref_id: Some(ref_id),

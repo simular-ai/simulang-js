@@ -17,7 +17,7 @@ pub struct Instance {
 
 #[napi]
 impl Instance {
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// A process ID of the instance, if known. Diagnostic only.
   ///
@@ -33,7 +33,7 @@ impl Instance {
     self.inner.pid()
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Root accessibility node of this application.
   ///
   /// On macOS this is the application element (every window plus the app
@@ -48,31 +48,31 @@ impl Instance {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Minimizes the instance.
   pub fn hide(&self) -> napi::Result<bool> {
     self.inner.hide().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Shows the instance.
   pub fn show(&self) -> napi::Result<bool> {
     self.inner.show().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Whether the instance has focus.
   pub fn is_focused(&self) -> napi::Result<bool> {
     self.inner.is_focused().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Brings the instance to the foreground and gives it focus.
   pub fn focus(&self) -> napi::Result<bool> {
     self.inner.focus().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   /// All visible top-level windows belonging to this instance (Android:
   /// one window per live task of the app).
@@ -85,7 +85,7 @@ impl Instance {
       .collect()
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[doc(alias = "page_content")]
   #[doc(alias = "application_content")]
   /// Text content of the instance's UI (aria-snapshot style).
@@ -93,13 +93,13 @@ impl Instance {
     self.inner.content().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Returns true if the instance has an accessibility tree.
   pub fn is_accessible(&self) -> napi::Result<bool> {
     self.inner.is_accessible().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Enables the accessibility tree for the instance. Also works when the
   /// application is already running. No-op on Android (uiautomator is
   /// always available).
@@ -110,7 +110,7 @@ impl Instance {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Disables the accessibility tree for the instance to save resources.
   /// No-op on Android.
   ///
@@ -124,7 +124,7 @@ impl Instance {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Request the application to exit gracefully. Returns when the request has
   /// been dispatched, not when the process has actually terminated; poll
   /// [`Self::is_running`] if you need to wait.
@@ -132,20 +132,20 @@ impl Instance {
     self.inner.close().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Force-terminate immediately. The application gets no chance to save state
   /// or run cleanup handlers.
   pub fn kill(&self) -> napi::Result<()> {
     self.inner.kill().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// `true` if the underlying process is still running. Cheap, non-blocking.
   pub fn is_running(&self) -> napi::Result<bool> {
     self.inner.is_running().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Search this application's accessibility tree by *concept text*, using
   /// bag-of-words paired-Jaccard scoring against each node's
   /// `overallDescription`

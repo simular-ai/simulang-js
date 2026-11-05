@@ -16,7 +16,7 @@ pub struct AudioPlayer {
 
 #[napi]
 impl AudioPlayer {
-  #[napi]
+  #[napi(catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// Decodes an audio file (WAV, MP3, FLAC, Vorbis/OGG, ...) on the
   /// **host** and appends it to the playback queue.
@@ -24,73 +24,73 @@ impl AudioPlayer {
     self.inner.append_file(&path).map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Appends a sound to the end of the playback queue.
   pub fn append_samples(&self, buffer: &SamplesBuffer) {
     self.inner.append(buffer.inner.clone());
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Resumes playback of a paused player. No effect if not paused.
   pub fn play(&self) {
     self.inner.play();
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Pauses playback; resume with `play()`.
   pub fn pause(&self) {
     self.inner.pause();
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Stops the player by emptying the queue.
   pub fn stop(&self) {
     self.inner.stop();
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Volume multiplier; `1.0` is the unfiltered input.
   pub fn volume(&self) -> f64 {
     f64::from(self.inner.volume())
   }
 
-  #[napi(setter)]
+  #[napi(setter, catch_unwind)]
   /// Sets the volume multiplier; `1.0` is the unfiltered input.
   #[allow(clippy::cast_possible_truncation)]
   pub fn set_volume(&self, value: f64) {
     self.inner.set_volume(value as f32);
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Playback speed; changing it changes pitch by the same factor.
   pub fn speed(&self) -> f64 {
     f64::from(self.inner.speed())
   }
 
-  #[napi(setter)]
+  #[napi(setter, catch_unwind)]
   /// Sets the playback speed (and with it the pitch).
   #[allow(clippy::cast_possible_truncation)]
   pub fn set_speed(&self, value: f64) {
     self.inner.set_speed(value as f32);
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Whether the player is currently paused.
   pub fn is_paused(&self) -> bool {
     self.inner.is_paused()
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   /// Whether the queue has no more sounds to play.
   pub fn empty(&self) -> bool {
     self.inner.empty()
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   /// The number of sounds currently in the queue.
   #[allow(clippy::cast_possible_truncation, clippy::len_without_is_empty)]
@@ -98,13 +98,13 @@ impl AudioPlayer {
     self.inner.len() as u32
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Blocks the current thread until every queued sound has finished.
   pub fn sleep_until_end(&self) {
     self.inner.sleep_until_end();
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   /// Playback position within the current sound in milliseconds,
   /// accounting for speed changes and seeks.
@@ -117,19 +117,19 @@ impl AudioPlayer {
     self.inner.get_pos().as_secs_f64() * 1000.0
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Removes all queued sounds and pauses the player.
   pub fn clear(&self) {
     self.inner.clear();
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Skips to the next sound in the queue.
   pub fn skip_one(&self) {
     self.inner.skip_one();
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Seeks within the current sound to the given position (in
   /// milliseconds), saturating at its end when the duration is known.
   /// For example given a source that reports a total duration of 42

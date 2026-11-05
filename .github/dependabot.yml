@@ -18,11 +18,14 @@ updates:
           - '@napi-rs/*'
           - '@emnapi/*'
           - 'napi*'
+      # typescript is ungrouped on purpose. TypeScript 7 is incompatible with
+      # the linters, so its bump should be the only Dependabot PR for that
+      # package. That PR can stay open until CI passes, while this group stays
+      # a straightforward approve.
       linter:
         patterns:
           - 'oxlint'
           - 'prettier'
-          - 'typescript'
           - '@types/node'
 
   - package-ecosystem: 'cargo'

@@ -8,6 +8,7 @@ use crate::accessibility_node::AccessibilityNode;
 use crate::ax_tree::{BoundingBox, TraversalOrder};
 use crate::key::Key;
 use crate::language_model::vlm::GroundingModel;
+use crate::machine::Machine;
 use crate::mouse::{Button, Direction};
 use crate::screen::Screen;
 use crate::screenshot::Screenshot;
@@ -26,20 +27,32 @@ pub struct Window {
 
 #[napi]
 impl Window {
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Window title (may be empty).
   pub fn title(&self) -> String {
     self.inner.title()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   /// Process ID that owns this window.
   pub fn pid(&self) -> napi::Result<i32> {
     self.inner.pid().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(getter, catch_unwind)]
+  #[must_use]
+  /// The platform's own id of the window: the `CGWindowID` on macOS, the
+  /// lower 32 bits of the `HWND` on Windows (sign-extending it gives the
+  /// handle back), the X11 window id on Linux, the task id on Android.
+  /// `null` when the window has none. It stays the same for the life of
+  /// the window and isn't reused until the window is gone. Pass it to
+  /// [`window`] to get the window back.
+  pub fn id(&self) -> Option<u32> {
+    self.inner.id()
+  }
+
+  #[napi(catch_unwind)]
   /// Root accessibility node for this window.
   pub fn node(&self) -> napi::Result<AccessibilityNode> {
     self
@@ -49,7 +62,7 @@ impl Window {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Live bounding box of the window on the global desktop, in the canonical
   /// coordinate space (OS-native units; see [`Machine`]).
   /// `right` and `bottom` are exclusive (Playwright / DOM convention).
@@ -63,7 +76,7 @@ impl Window {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// The screen this window lives on: locally the connected display
   /// containing the largest area of [`Window.boundingBox`] (the same
   /// heuristic the OS uses to decide a window's "owning" screen), on
@@ -74,7 +87,7 @@ impl Window {
   /// minimised to an off-screen state, or on a virtual desktop with no
   /// attached display. There is no "correct" screen to pick in that case;
   /// callers that prefer a fallback can wrap in `try` / `catch` and call
-  /// [`Machine.mainScreen`].
+  /// [`Machine.primaryScreen`].
   pub fn screen(&self) -> napi::Result<Screen> {
     self
       .inner
@@ -83,7 +96,7 @@ impl Window {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Whether the window is currently minimized (Android: the task is
   /// backgrounded).
   ///
@@ -95,7 +108,7 @@ impl Window {
     self.inner.is_minimized().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Whether the window is currently maximized (visible and zoomed / full
   /// screen). A minimized window reports `false`. Android: the task is on
   /// screen and occupies it fully.
@@ -113,7 +126,7 @@ impl Window {
     self.inner.is_maximized().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Put the window into the **minimized** visual state (Dock / taskbar /
   /// backgrounded). No-op when already minimized.
   ///
@@ -127,7 +140,7 @@ impl Window {
     self.inner.minimize().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Put the window into the **maximized** visual state: on-screen and
   /// maximized / full screen. A minimized window is shown maximized.
   /// No-op when already maximized.
@@ -142,7 +155,7 @@ impl Window {
     self.inner.maximize().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Put the window into the **normal** visual state: on-screen, neither
   /// minimized nor maximized. A minimized or maximized window is shown at
   /// its restored size. No-op when already normal.
@@ -157,7 +170,7 @@ impl Window {
     self.inner.normal().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Close the window (user-equivalent to clicking the close button /
   /// pressing Alt+F4 / Cmd+W). Android: remove the task, including its
   /// recents card.
@@ -165,7 +178,7 @@ impl Window {
     self.inner.close().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Bring this window to the foreground and give it keyboard focus.
   ///
   /// Platform notes:
@@ -182,7 +195,7 @@ impl Window {
     self.inner.focus().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Move the cursor to a point inside this window.
   ///
   /// `(x, y)` are **window-frame-relative**, in OS-native units (physical
@@ -214,7 +227,7 @@ impl Window {
     self.inner.move_mouse(x, y).map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Press / release a mouse button at the cursor's current location.
   ///
   /// Provided for ergonomic parity with [`Window.moveMouse`] — combine
@@ -228,7 +241,7 @@ impl Window {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Move the cursor to `(x, y)` inside this window and synthesise a
   /// mouse button event. Sugar for `moveMouse(x, y); button(...)`.
   ///
@@ -249,7 +262,7 @@ impl Window {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Scroll the wheel by `(deltaX, deltaY)` ticks at the cursor's
   /// current location. Positive `deltaY` scrolls down; positive
   /// `deltaX` scrolls right. Does not reposition the cursor first —
@@ -262,7 +275,7 @@ impl Window {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Move this window's private background pointer without moving the system
   /// cursor or bringing the application to the foreground.
   ///
@@ -280,7 +293,7 @@ impl Window {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Send a mouse-button event to this window without moving the system
   /// cursor or bringing the application to the foreground.
   ///
@@ -293,7 +306,7 @@ impl Window {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Send a mouse-button event to `(x, y)` in this window without moving the
   /// system cursor or bringing the application to the foreground.
   ///
@@ -311,7 +324,7 @@ impl Window {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Scroll this window at its private background-pointer location without
   /// bringing the application to the foreground.
   ///
@@ -324,7 +337,7 @@ impl Window {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// Type text into this window without bringing its application to the
   /// foreground. Supported on macOS only.
@@ -335,7 +348,7 @@ impl Window {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Send a key event to this window without bringing its application to the
   /// foreground. Supported on macOS only.
   pub fn background_key(&mut self, key: Key, direction: Direction) -> napi::Result<()> {
@@ -345,7 +358,7 @@ impl Window {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// Send a Unicode key event to this window without bringing its application
   /// to the foreground. Provide a single character. Supported on macOS only.
@@ -371,7 +384,7 @@ impl Window {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Send a platform-specific key value to this window without bringing its
   /// application to the foreground. Supported on macOS only.
   pub fn background_key_other(&mut self, value: u32, direction: Direction) -> napi::Result<()> {
@@ -381,7 +394,7 @@ impl Window {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Send a raw keycode to this window without bringing its application to
   /// the foreground. Supported on macOS only.
   pub fn background_raw(&mut self, keycode: u16, direction: Direction) -> napi::Result<()> {
@@ -391,7 +404,7 @@ impl Window {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Render the window's accessibility subtree as an indented
   /// Playwright-style aria snapshot.
   ///
@@ -404,7 +417,7 @@ impl Window {
     self.inner.snapshot().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Capture just this window's pixels.
   ///
   /// Local windows read from their own backing store, so overlapping
@@ -424,7 +437,7 @@ impl Window {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// Locate `concept` inside this window's pixels and return its **global
   /// desktop coordinates** `[x, y]` in OS-native units (may be negative on
@@ -456,7 +469,7 @@ impl Window {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Search this window's accessibility subtree by *concept text*, using
   /// bag-of-words paired-Jaccard scoring against each node's
   /// `overallDescription`
@@ -502,4 +515,15 @@ impl Window {
       .map_err(Error::from_reason)?;
     Ok(AccessibilityNode::from_nodes(matches))
   }
+}
+
+/// The window of `machine` with this [`Window.id`], or `null` once no live
+/// window has it.
+#[napi(catch_unwind)]
+pub fn window(machine: &Machine, id: u32) -> napi::Result<Option<Window>> {
+  machine
+    .inner
+    .window(id)
+    .map(|window| window.map(|inner| Window { inner }))
+    .map_err(Error::from_reason)
 }

@@ -14,7 +14,7 @@ pub struct StateSatisfiesModel {
 
 #[napi]
 impl StateSatisfiesModel {
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// First state-satisfaction model advertised by the first capable provider
   /// in the loaded configuration whose credentials are currently available.
   /// Throws if no provider advertises the state-satisfies service.
@@ -25,7 +25,7 @@ impl StateSatisfiesModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// Resolve a model alias against the loaded config. Throws if the alias is
   /// unknown.
   #[allow(clippy::needless_pass_by_value)]
@@ -35,7 +35,7 @@ impl StateSatisfiesModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// Convenience shim for the bundled `simular_state_satisfies` alias.
   pub fn simular_state_satisfies() -> napi::Result<Self> {
     simulang_rs::language_model::StateSatisfiesModel::simular_state_satisfies()
@@ -43,7 +43,7 @@ impl StateSatisfiesModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   /// Every state-satisfaction model alias accepted by `byAlias` on this
   /// machine, deduplicated and sorted alphabetically.
@@ -51,14 +51,14 @@ impl StateSatisfiesModel {
     simulang_rs::language_model::StateSatisfiesModel::available_aliases()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// The provider-configured model identifier.
   pub fn name(&self) -> String {
     self.inner.name().to_string()
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Check that the provider credentials work. Throws if they do not.
   pub fn check_auth(&self) -> napi::Result<()> {
     self
@@ -67,7 +67,7 @@ impl StateSatisfiesModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// Evaluate `condition` against the supplied accessibility text and raw
   /// screenshot base64.

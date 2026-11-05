@@ -77,12 +77,12 @@ impl From<simulang_rs::Os> for Os {
 /// [`Machine.screens`] / [`Window.screen`] to discover where the
 /// addressable region actually is.
 pub struct Machine {
-  inner: SimulangMachine,
+  pub(crate) inner: SimulangMachine,
 }
 
 #[napi]
 impl Machine {
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   #[must_use]
   /// The local desktop this process runs on. Infallible and zero-cost.
   ///
@@ -94,7 +94,7 @@ impl Machine {
     }
   }
 
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// Connect to an Android device at an adb endpoint (`host:port`).
   ///
@@ -116,7 +116,7 @@ impl Machine {
       .map_err(Error::from_reason)
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// The operating system this machine runs:
   /// `'macos' | 'windows' | 'linux' | 'android'`.
@@ -124,7 +124,7 @@ impl Machine {
     self.inner.os().into()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// A human-readable identifier for the machine: the local hostname, or
   /// the adb serial (`host:port`) for an Android device.
@@ -136,7 +136,7 @@ impl Machine {
   // apps
   // ---------------------------------------------------------------
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// An installed application by exact name (no fuzzy matching).
   ///
@@ -150,7 +150,7 @@ impl Machine {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// Find an installed app by fuzzy matching `query` against the machine's
   /// app list (launcher names locally, package names on Android).
@@ -162,7 +162,7 @@ impl Machine {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// All installed applications.
   pub fn apps(&self) -> napi::Result<Vec<App>> {
     self
@@ -172,7 +172,7 @@ impl Machine {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// The machine's default web browser.
   pub fn default_browser(&self) -> napi::Result<App> {
     self
@@ -182,7 +182,7 @@ impl Machine {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// The application currently in the foreground.
   pub fn foreground_app(&self) -> napi::Result<Instance> {
     self
@@ -196,7 +196,7 @@ impl Machine {
   // windows
   // ---------------------------------------------------------------
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// The window that currently has keyboard focus, if any.
   ///
   /// Returns `null` when nothing is focused (desktop: no focused window;
@@ -210,9 +210,12 @@ impl Machine {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
-  /// All windows on the machine: visible top-level windows across every
-  /// process locally, one window per live task (recents entry) on Android.
+  #[napi(catch_unwind)]
+  /// All windows on the machine: every window a person can bring on screen,
+  /// shown, minimized or covered, across every process, and on Windows and
+  /// Linux on any virtual desktop; macOS lists the current Space. The
+  /// desktop, taskbars and docks are left out. Android: one window per
+  /// live task (recents entry).
   pub fn windows(&self) -> napi::Result<Vec<Window>> {
     self
       .inner
@@ -221,7 +224,7 @@ impl Machine {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// The top-level window at global desktop coordinates `(x, y)`, or
   /// `null` when no window sits under the point.
   ///
@@ -248,7 +251,7 @@ impl Machine {
   // accessibility
   // ---------------------------------------------------------------
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Root accessibility node of the machine's focused application.
   ///
   /// Android has no per-application tree; this is a snapshot of everything
@@ -261,7 +264,7 @@ impl Machine {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Root accessibility node spanning everything currently accessible: on
   /// desktops the system-wide root (its children are the running
   /// applications), on Android a snapshot of everything currently shown on
@@ -275,7 +278,7 @@ impl Machine {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// The accessibility element at global desktop coordinates `(x, y)` via
   /// the platform hit-test, or `null` when the point has no accessible
   /// element (empty desktop, gaps between controls). Throws on Android (no
@@ -293,7 +296,7 @@ impl Machine {
     )
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Playwright-style aria snapshot of the machine's focused application
   /// (Android: everything currently shown on screen).
   pub fn snapshot(&self) -> napi::Result<String> {
@@ -304,11 +307,12 @@ impl Machine {
   // screens / screenshots
   // ---------------------------------------------------------------
 
-  #[napi]
-  /// Every display connected to the machine.
-  ///
-  /// The order is platform-defined; do not rely on it. Android: the
-  /// device's single physical screen.
+  #[napi(catch_unwind)]
+  /// Every display connected to the machine, in index order: the display
+  /// the OS calls primary first, the rest by their top-left corner, left to
+  /// right and then top to bottom. Displays mirrored onto one another are
+  /// one entry. Each handle stores its index. Android: the device's single
+  /// screen.
   pub fn screens(&self) -> napi::Result<Vec<Screen>> {
     self
       .inner
@@ -317,18 +321,18 @@ impl Machine {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
-  /// The machine's main display (the primary monitor). Android: the
-  /// device screen.
-  pub fn main_screen(&self) -> napi::Result<Screen> {
+  #[napi(catch_unwind)]
+  /// The display the OS calls primary: the one with the menu bar on macOS,
+  /// the taskbar on Windows. Android: the device screen.
+  pub fn primary_screen(&self) -> napi::Result<Screen> {
     self
       .inner
-      .main_screen()
+      .primary_screen()
       .map(|inner| Screen { inner })
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// The display the mouse cursor is currently on (the main screen when
   /// the cursor is on none). Android: the device screen — the emulated
   /// pointer is always on it.
@@ -344,9 +348,32 @@ impl Machine {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
+  /// Screenshot of the whole desktop: every display in one image.
+  ///
+  /// The image covers the smallest rectangle that holds every display,
+  /// captured as [`screenshotCropped`](Machine::screenshot_cropped) would;
+  /// where the arrangement leaves a gap between displays, the image is
+  /// transparent black. With one display it is that display's capture, as
+  /// from [`Screen.screenshot`]. The [`Screenshot`] knows its box, so
+  /// [`Screenshot.toMachineCoordinates`] maps a point in it back to global
+  /// desktop coordinates as with any capture.
+  ///
+  /// Several displays share one image, so each is seen at the scale the
+  /// arrangement gives it. Too large a desktop throws. Android: the
+  /// device's screen (`hideCursor` is ignored).
+  pub fn screenshot(&self, hide_cursor: bool) -> napi::Result<Screenshot> {
+    self
+      .inner
+      .screenshot(hide_cursor)
+      .map(|inner| Screenshot { inner })
+      .map_err(Error::from_reason)
+  }
+
+  #[napi(catch_unwind)]
   /// Screenshot of a region of the machine's screen, addressed in the
-  /// canonical global desktop coordinates (see [`Machine`]).
+  /// canonical global desktop coordinates (see [`Machine`]). Too large a
+  /// region throws.
   ///
   /// Local: a native cropped capture. Android: the full screen is captured
   /// and cropped to the region, which must lie entirely within the screen
@@ -370,7 +397,7 @@ impl Machine {
   // files
   // ---------------------------------------------------------------
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// A file on the machine's filesystem, opened — or created along with
   /// its parent directories, with `createMissing` — at `path`.
@@ -388,7 +415,7 @@ impl Machine {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// A directory on the machine's filesystem, opened — or created along
   /// with its parents, with `createMissing` — at `path`. Path resolution
@@ -401,7 +428,7 @@ impl Machine {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// A new uniquely named directory in the machine's temp location. It is
   /// **not** removed automatically; call [`Directory.delete`] when done.
   pub fn temp_dir(&self) -> napi::Result<Directory> {
@@ -416,7 +443,7 @@ impl Machine {
   // audio
   // ---------------------------------------------------------------
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Loopback capture of the machine's audio output (what its speakers
   /// are playing), in the given format.
   ///
@@ -431,7 +458,7 @@ impl Machine {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// The machine's default microphone, recording in the given format
   /// from the moment it is opened.
   ///
@@ -445,7 +472,7 @@ impl Machine {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// A player queueing sounds on the machine's default audio output.
   ///
   /// Not supported on Android yet — throws at construction; see
@@ -462,7 +489,7 @@ impl Machine {
   // mouse
   // ---------------------------------------------------------------
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Sends an individual mouse button event, e.g. to simulate a click of
   /// the left mouse key. Some of the buttons are specific to a platform.
   ///
@@ -475,7 +502,7 @@ impl Machine {
       .map_err(|err| Error::from_reason(err.to_string()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Move the mouse cursor to the specified x and y coordinates.
   ///
   /// You can specify absolute coordinates or relative from the current
@@ -495,7 +522,7 @@ impl Machine {
       .map_err(|err| Error::from_reason(err.to_string()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Send a mouse scroll event.
   ///
   /// A positive length will result in scrolling down/right and negative
@@ -507,7 +534,7 @@ impl Machine {
       .map_err(|err| Error::from_reason(err.to_string()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Get the location of the mouse in the canonical global-desktop space
   /// (OS-native units; see [`Machine`]). On Android this is the emulated
   /// cursor's recorded location.
@@ -522,7 +549,7 @@ impl Machine {
   // keyboard
   // ---------------------------------------------------------------
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// Enter the text. You can use unicode here like: ❤️. This works
   /// regardless of the current keyboard layout. You cannot use this
@@ -535,7 +562,7 @@ impl Machine {
       .map_err(|err| Error::from_reason(err.to_string()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Sends an individual key event. It will enter the keysym (virtual
   /// key). Have a look at the [`Machine.keyRaw`] method, if you want to
   /// enter a keycode.
@@ -548,7 +575,7 @@ impl Machine {
       .map_err(|err| Error::from_reason(err.to_string()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// Sends an individual Unicode key event. Provide a single character.
   pub fn key_unicode(&mut self, value: String, direction: Direction) -> napi::Result<()> {
@@ -565,7 +592,7 @@ impl Machine {
       .map_err(|err| Error::from_reason(err.to_string()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Sends a key event for a raw, platform-specific key value.
   pub fn key_other(&mut self, value: u32, direction: Direction) -> napi::Result<()> {
     self
@@ -574,7 +601,7 @@ impl Machine {
       .map_err(|err| Error::from_reason(err.to_string()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Sends a raw keycode. The keycode may or may not be mapped on the
   /// current layout. You have to make sure of that yourself. This can be
   /// useful if you want to simulate a press regardless of the layout (WASD
@@ -595,7 +622,7 @@ impl Machine {
   // clipboard
   // ---------------------------------------------------------------
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Gets the string content from the machine's clipboard.
   ///
   /// Returns the clipboard string if available, or `null` if the clipboard
@@ -604,7 +631,7 @@ impl Machine {
     self.inner.get_string().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// Replaces the contents of the machine's clipboard with the given
   /// string.
@@ -621,7 +648,7 @@ impl Machine {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Gets the image content from the machine's clipboard.
   ///
   /// Returns the clipboard image if available, or `null` if the clipboard
@@ -634,7 +661,7 @@ impl Machine {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Replaces the contents of the machine's clipboard with the given
   /// image. For example used to copy a screenshot to the clipboard.
   ///
@@ -648,13 +675,13 @@ impl Machine {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Clears all content from the machine's clipboard, regardless of type.
   pub fn clear_clipboard(&self) -> napi::Result<()> {
     self.inner.clear().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// Types text by pasting it from the clipboard.
   ///
@@ -675,7 +702,7 @@ impl Machine {
   // escape hatch
   // ---------------------------------------------------------------
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   /// Phone-only operations of the underlying Android device, or `null`
   /// when this machine is the local desktop.
@@ -707,14 +734,14 @@ pub struct ClipboardContent {
 
 #[napi]
 impl ClipboardContent {
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// The clipboard's string content, when it had string data.
   pub fn text(&self) -> Option<String> {
     self.inner.text.clone()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// The clipboard's image content (8-bit RGBA, see
   /// [`Machine.getClipboardImage`]), when it had image data.
@@ -737,32 +764,32 @@ pub struct AndroidExtras {
 
 #[napi]
 impl AndroidExtras {
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// The adb serial (`host:port`) this device is connected through.
   pub fn serial(&self) -> String {
     self.inner.serial().to_owned()
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Open the notification shade.
   pub fn notifications(&self) -> napi::Result<()> {
     self.inner.notifications().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Open the quick-settings panel.
   pub fn quick_settings(&self) -> napi::Result<()> {
     self.inner.quick_settings().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Collapse the notification shade / quick-settings panel.
   pub fn collapse_shade(&self) -> napi::Result<()> {
     self.inner.collapse_shade().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Lock the screen to landscape orientation.
   ///
   /// The freeze overrides auto-rotate until the orientation is set again.
@@ -770,7 +797,7 @@ impl AndroidExtras {
     self.inner.landscape().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Lock the screen to portrait orientation.
   ///
   /// The freeze overrides auto-rotate until the orientation is set again.
@@ -778,7 +805,7 @@ impl AndroidExtras {
     self.inner.portrait().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// Enable or disable an installed package.
   ///
@@ -791,7 +818,7 @@ impl AndroidExtras {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Swipe (touch-drag) from `(fromX, fromY)` to `(toX, toY)`, holding
   /// the finger down for `durationMs` while it travels. Coordinates are
   /// absolute device pixels in the current rotation's space.
@@ -819,4 +846,14 @@ impl AndroidExtras {
       .swipe((from_x, from_y), (to_x, to_y), duration_ms)
       .map_err(Error::from_reason)
   }
+}
+
+#[napi(catch_unwind)]
+/// Release keys this process is holding and drop its input connection.
+///
+/// The next key, mouse, or scroll call connects again. On Linux this also
+/// unbinds the keycodes that connection reserved. An exit handler does the
+/// same when the process quits.
+pub fn release_input() {
+  simulang_rs::release_input();
 }

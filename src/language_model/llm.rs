@@ -17,7 +17,7 @@ pub struct AskModel {
 
 #[napi]
 impl AskModel {
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// First LLM model advertised by the first LLM-capable provider in the
   /// loaded configuration whose credentials are currently available.
   /// Providers with missing credentials are skipped; throws if no provider
@@ -29,7 +29,7 @@ impl AskModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// Resolve a model alias against the loaded config (e.g.
   /// `"openrouter_gpt_4o_mini"` / `"openrouter_claude_opus"` from the
   /// bundled `openrouter` provider, or any alias declared by a user provider).
@@ -41,7 +41,7 @@ impl AskModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   /// Every LLM model alias accepted by `byAlias` on this machine,
   /// deduplicated and sorted alphabetically. Use to discover what aliases
@@ -51,14 +51,14 @@ impl AskModel {
     simulang_rs::language_model::AskModel::available_aliases()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// The wire-level model identifier sent in the request body.
   pub fn name(&self) -> String {
     self.inner.name().to_string()
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Check that the API key works. Throws if it doesn't.
   ///
   /// Call right after creating the model so a bad key fails fast,
@@ -74,7 +74,7 @@ impl AskModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Ask the model a question, optionally grounded in accessibility text
   /// and/or images.
   ///
@@ -101,7 +101,7 @@ impl AskModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   /// LLM aliases whose provider entry sets `json_schema` to true, using the
   /// same auth filter and first-provider-wins rule as [`AskModel.byAlias`].
@@ -111,7 +111,7 @@ impl AskModel {
     simulang_rs::language_model::AskModel::json_schema_aliases()
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Ask the model for one JSON value that matches `schema`.
   ///
   /// Same `prompt`, `text`, and `images` as [`AskModel.ask`]. `schema` is a

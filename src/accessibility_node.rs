@@ -37,7 +37,7 @@ impl AccessibilityNode {
   }
 }
 
-#[napi]
+#[napi(catch_unwind)]
 #[allow(clippy::needless_pass_by_value)]
 /// Keep `candidates` whose box sits in `relation` to at least one
 /// landmark. Find them however you want (`scoredSearch`, a VLM +
@@ -94,21 +94,21 @@ impl AccessibilityNode {
   // properties
   // ---------------------------------------------------------------
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Cross-platform ARIA role.
   pub fn role(&self) -> AriaRole {
     self.inner.aria_role().into()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Accessible name (title / label).
   pub fn name(&self) -> String {
     self.inner.title()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Platform class name (Windows UIA `ClassName` / macOS subrole /
   /// Android widget class).
@@ -116,21 +116,21 @@ impl AccessibilityNode {
     self.inner.class_name()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Localized control type string.
   pub fn localized_control_type(&self) -> String {
     self.inner.localized_control_type()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Short description (`AXDescription` / UIA `Name`-adjacent fields).
   pub fn description(&self) -> String {
     self.inner.description_text()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Synthetic, query-friendly description used by `scoredSearch` (combines
   /// the node's role, label, value, and a small amount of ancestor context).
@@ -138,21 +138,21 @@ impl AccessibilityNode {
     self.inner.summary_with_context()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Help text / tooltip.
   pub fn help_text(&self) -> String {
     self.inner.help_text()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Current text value (textbox content, slider value as string, …).
   pub fn value(&self) -> String {
     self.inner.value()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Stable element identifier that the inspected application's own source
   /// code assigned to this element (e.g. for its UI tests), or the empty
@@ -166,14 +166,14 @@ impl AccessibilityNode {
     self.inner.automation_id()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Whether the node accepts user input.
   pub fn is_enabled(&self) -> bool {
     self.inner.is_enabled()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Whether the platform reports the node as visible, or `null` when the
   /// visibility attribute cannot be read.
@@ -190,7 +190,7 @@ impl AccessibilityNode {
     self.inner.is_visible()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Hyperlink target of this node, or `null` when the node is not a link,
   /// the link has no target, or the platform backend does not expose the
@@ -200,7 +200,21 @@ impl AccessibilityNode {
     self.inner.url()
   }
 
-  #[napi]
+  #[napi(getter, catch_unwind)]
+  #[must_use]
+  /// Keyboard shortcut that activates this node, or `null` when the
+  /// platform reports none.
+  ///
+  /// The string is platform-native (`⌘⇧Z` on macOS, `Ctrl+Shift+Z` on
+  /// Windows). Printed snapshots show the same text in brackets.
+  pub fn shortcut(&self) -> Option<String> {
+    self
+      .inner
+      .shortcut()
+      .filter(|shortcut| !shortcut.is_empty())
+  }
+
+  #[napi(catch_unwind)]
   /// Live bounding box of the element on the global desktop, in the canonical
   /// coordinate space (OS-native units; see [`Machine`]).
   /// `right` and `bottom` are exclusive (Playwright / DOM convention).
@@ -212,7 +226,7 @@ impl AccessibilityNode {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// A screen point where a pointer click actually lands on this element,
   /// as `[x, y]` in the canonical global-desktop space (OS-native units;
   /// see [`Machine`]).
@@ -247,7 +261,7 @@ impl AccessibilityNode {
   // tree navigation
   // ---------------------------------------------------------------
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Direct child nodes. Throws when the subtree has been torn down or
   /// the children attribute is unreadable. (Tree walks — `snapshot`,
   /// `scoredSearch`, `childrenCollapsed` — treat such failures as "no
@@ -261,7 +275,7 @@ impl AccessibilityNode {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Direct children with collapsible structural wrappers hoisted out:
   /// a child that is a collapsible structural wrapper is skipped and its own
   /// (recursively collapsed) children take its place, preserving sibling
@@ -280,7 +294,7 @@ impl AccessibilityNode {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Direct parent node, or `null` if this node has no parent. Parent lookup
   /// failures throw.
   pub fn parent(&self) -> napi::Result<Option<AccessibilityNode>> {
@@ -291,7 +305,7 @@ impl AccessibilityNode {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Parent chain for this node, nearest parent first, excluding this node.
   /// Stops when a node has no parent; parent lookup failures throw.
   pub fn ancestors(&self) -> napi::Result<Vec<AccessibilityNode>> {
@@ -303,7 +317,7 @@ impl AccessibilityNode {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Whether this node is the direct parent of `other`.
   pub fn is_parent_of(&self, other: &AccessibilityNode) -> napi::Result<bool> {
     self
@@ -312,7 +326,7 @@ impl AccessibilityNode {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Whether this node is a direct child of `other`.
   pub fn is_child_of(&self, other: &AccessibilityNode) -> napi::Result<bool> {
     self
@@ -321,7 +335,7 @@ impl AccessibilityNode {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Whether this node is a strict ancestor of `other`.
   pub fn is_ancestor_of(&self, other: &AccessibilityNode) -> napi::Result<bool> {
     self
@@ -330,7 +344,7 @@ impl AccessibilityNode {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Whether this node is a strict descendant of `other`.
   pub fn is_descendant_of(&self, other: &AccessibilityNode) -> napi::Result<bool> {
     self
@@ -339,7 +353,7 @@ impl AccessibilityNode {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Lowest shared ancestor for this node and `other`, plus that ancestor's
   /// level from the reached parentless node (`parentless = 0`, its children
   /// `= 1`). Returns `null` when both chains resolve and no shared ancestor
@@ -360,7 +374,7 @@ impl AccessibilityNode {
   // snapshot / introspection
   // ---------------------------------------------------------------
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   /// Render this node's accessibility subtree as an indented
   /// Playwright-style aria snapshot string.
@@ -373,7 +387,7 @@ impl AccessibilityNode {
     self.inner.snapshot()
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   /// Human-readable names of the actions this node currently supports
   /// (e.g. `"activate"`, `"toggle"`, `"scroll_into_view"`).
@@ -385,7 +399,7 @@ impl AccessibilityNode {
   // search
   // ---------------------------------------------------------------
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Search this subtree by *concept text*, using bag-of-words
   /// paired-Jaccard scoring against each node's `overallDescription`
   /// (`simulang_rs::AXNodeSynthetic::summary_with_context`).
@@ -429,38 +443,38 @@ impl AccessibilityNode {
   // actions (proxy to `AXNodeActions`)
   // ---------------------------------------------------------------
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Invoke / click the element (button, link, menu item).
   pub fn activate(&self) -> napi::Result<()> {
     self.inner.activate().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Set the text value of the element (textbox, combobox, …).
   #[allow(clippy::needless_pass_by_value)]
   pub fn set_value(&self, value: String) -> napi::Result<()> {
     self.inner.set_value(&value).map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Toggle a checkbox or switch.
   pub fn toggle(&self) -> napi::Result<()> {
     self.inner.toggle().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Select a tab, radio button, or list item.
   pub fn select(&self) -> napi::Result<()> {
     self.inner.select().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Expand or collapse a dropdown or tree item.
   pub fn expand_collapse(&self) -> napi::Result<()> {
     self.inner.expand_collapse().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Open the element's context menu — the semantic equivalent of a
   /// right-click, without synthesizing pointer input, so it works on
   /// background / obscured windows (Windows `ShowContextMenu`, macOS
@@ -478,13 +492,13 @@ impl AccessibilityNode {
     self.inner.show_menu().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Scroll the element into view.
   pub fn scroll_into_view(&self) -> napi::Result<()> {
     self.inner.scroll_into_view().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Move keyboard focus to this element (brings its window to the
   /// foreground as a side effect on most platforms).
   pub fn focus(&self) -> napi::Result<()> {

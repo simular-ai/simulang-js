@@ -40,20 +40,20 @@ pub struct Loopback {
 
 #[napi]
 impl Loopback {
-  #[napi]
+  #[napi(catch_unwind)]
   /// Begin capturing. Must be called before `record()` or `drain()`.
   pub fn start(&mut self) -> napi::Result<()> {
     self.inner.start().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Stop capturing. May be started again with `start()`. After
   /// stopping, call `drain()` to collect remaining buffered samples.
   pub fn stop(&mut self) -> napi::Result<()> {
     self.inner.stop().map_err(Error::from_reason)
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Number of interleaved channels (1 = mono, 2 = stereo).
   pub fn channels(&self) -> u16 {
@@ -61,7 +61,7 @@ impl Loopback {
     self.inner.channels().get()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Samples per second per channel (e.g. 44100, 48000).
   pub fn sample_rate(&self) -> u32 {
@@ -69,7 +69,7 @@ impl Loopback {
     self.inner.sample_rate().get()
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Blocks for exactly `duration_ms` and returns the captured audio as
   /// a `SamplesBuffer`. Useful for streaming fixed-size chunks while
   /// the source is still running.
@@ -85,7 +85,7 @@ impl Loopback {
       .ok_or_else(|| Error::from_reason("no audio samples collected"))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Drains all buffered samples and returns them as a `SamplesBuffer`.
   ///
   /// Typical usage: call `start()`, do work while audio accumulates in
@@ -119,7 +119,7 @@ pub struct Microphone {
 
 #[napi]
 impl Microphone {
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Number of interleaved channels (1 = mono, 2 = stereo).
   pub fn channels(&self) -> u16 {
@@ -127,7 +127,7 @@ impl Microphone {
     self.inner.channels().get()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Samples per second per channel (e.g. 44100, 48000).
   pub fn sample_rate(&self) -> u32 {
@@ -135,7 +135,7 @@ impl Microphone {
     self.inner.sample_rate().get()
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Blocks for exactly `duration_ms` and returns the captured audio as
   /// a `SamplesBuffer`. Call repeatedly to stream fixed-size chunks.
   pub fn record(&mut self, duration_ms: u32) -> napi::Result<SamplesBuffer> {
@@ -159,7 +159,7 @@ pub struct SamplesBuffer {
 
 #[napi]
 impl SamplesBuffer {
-  #[napi(constructor)]
+  #[napi(constructor, catch_unwind)]
   #[allow(clippy::needless_pass_by_value, clippy::cast_possible_truncation)]
   /// Creates a new buffer from raw PCM samples.
   ///
@@ -180,7 +180,7 @@ impl SamplesBuffer {
     })
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Number of interleaved channels (1 = mono, 2 = stereo).
   pub fn channels(&self) -> u16 {
@@ -188,7 +188,7 @@ impl SamplesBuffer {
     self.inner.channels().get()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Samples per second per channel (e.g. 16000, 44100).
   pub fn sample_rate(&self) -> u32 {
@@ -196,7 +196,7 @@ impl SamplesBuffer {
     self.inner.sample_rate().get()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Total duration of the buffer in milliseconds.
   #[allow(clippy::cast_precision_loss)]
@@ -208,7 +208,7 @@ impl SamplesBuffer {
       .map_or(0.0, |d| d.as_secs_f64() * 1000.0)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Transcribe this audio buffer with the given speech-to-text model and
   /// return the recognized text.
   ///

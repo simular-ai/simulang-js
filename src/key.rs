@@ -6,15 +6,25 @@ use simulang_rs::Key as SimulangKey;
 #[derive(Debug, Copy, Clone)]
 /// Represents a keyboard key.
 pub enum Key {
+  /// The `0` key in the main row of digits (not the numpad). Alias: `Digit0`.
   Num0,
+  /// The `1` key in the main row of digits (not the numpad). Alias: `Digit1`.
   Num1,
+  /// The `2` key in the main row of digits (not the numpad). Alias: `Digit2`.
   Num2,
+  /// The `3` key in the main row of digits (not the numpad). Alias: `Digit3`.
   Num3,
+  /// The `4` key in the main row of digits (not the numpad). Alias: `Digit4`.
   Num4,
+  /// The `5` key in the main row of digits (not the numpad). Alias: `Digit5`.
   Num5,
+  /// The `6` key in the main row of digits (not the numpad). Alias: `Digit6`.
   Num6,
+  /// The `7` key in the main row of digits (not the numpad). Alias: `Digit7`.
   Num7,
+  /// The `8` key in the main row of digits (not the numpad). Alias: `Digit8`.
   Num8,
+  /// The `9` key in the main row of digits (not the numpad). Alias: `Digit9`.
   Num9,
   A,
   B,
@@ -48,6 +58,7 @@ pub enum Key {
   Add,
   /// alt key on Linux and Windows (option key on macOS)
   Alt,
+  /// The context menu key. Aliases: `ContextMenu`, `Menu`.
   Apps,
   Attn,
   /// backspace key
@@ -71,21 +82,29 @@ pub enum Key {
   ContrastDown,
   /// control key
   Control,
+  /// The IME `Convert` key (`Henkan` on Japanese keyboards). Alias: `Henkan`.
   Convert,
   Crsel,
+  /// The `Alphanumeric` / `Eisu` IME key on Japanese keyboards. Aliases: `Eisu`, `Alphanumeric`.
   DBEAlphanumeric,
+  /// The IME `Code Input` key. Alias: `CodeInput`.
   DBECodeinput,
   DBEDetermineString,
   DBEEnterDLGConversionMode,
   DBEEnterIMEConfigMode,
   DBEEnterWordRegisterMode,
   DBEFlushString,
+  /// The `Hiragana` IME key on Japanese keyboards. Alias: `Hiragana`.
   DBEHiragana,
+  /// The `Katakana` IME key on Japanese keyboards. Alias: `Katakana`.
   DBEKatakana,
   DBENoCodepoint,
   DBENoRoman,
+  /// The `Romaji` IME key on Japanese keyboards. Alias: `Romaji`.
   DBERoman,
+  /// The `Hankaku` (half-width characters) IME key on Japanese keyboards. Alias: `Hankaku`.
   DBESBCSChar,
+  /// The `Zenkaku` (full-width characters) IME key on Japanese keyboards. Alias: `Zenkaku`.
   DBESChar,
   Decimal,
   /// delete key
@@ -187,6 +206,7 @@ pub enum Key {
   GamepadView,
   GamepadX,
   GamepadY,
+  /// The Hangul mode key on Korean keyboards (same key as `Hangul`). Alias: `HangulMode`.
   Hangeul,
   Hangul,
   Hanja,
@@ -202,10 +222,15 @@ pub enum Key {
   IMEOff,
   IMEOn,
   Insert,
+  /// The Junja mode key on Korean keyboards. Alias: `JunjaMode`.
   Junja,
+  /// The Kana mode (Kana lock) key on Japanese keyboards. Alias: `KanaMode`.
   Kana,
+  /// The Kanji mode key on Japanese keyboards (the `kana` key on JIS Macs). Alias: `KanjiMode`.
   Kanji,
+  /// The key that launches the first generic application. Alias: `LaunchApplication1`.
   LaunchApp1,
+  /// The key that launches the second generic application. Alias: `LaunchApplication2`.
   LaunchApp2,
   LaunchMail,
   LaunchMediaSelect,
@@ -217,8 +242,10 @@ pub enum Key {
   /// left arrow key
   LeftArrow,
   Linefeed,
+  /// The left Alt key (left Option key on macOS). On Linux this presses left Alt; it used to press the context-menu key, which is `Apps`. Alias: `AltLeft`.
   LMenu,
   LShift,
+  /// The left Windows key (left Command key on macOS, left Super key on Linux). Alias: `MetaLeft`.
   LWin,
   MButton,
   MediaFast,
@@ -242,6 +269,7 @@ pub enum Key {
   NavigationUp,
   NavigationView,
   NoName,
+  /// The IME `NonConvert` key (`Muhenkan` on Japanese keyboards). Alias: `Muhenkan`.
   NonConvert,
   None,
   /// Num lock
@@ -257,13 +285,21 @@ pub enum Key {
   Numpad8,
   Numpad9,
   NumpadEnter,
+  /// The `;` `:` key on a US layout. Alias: `Semicolon`.
   OEM1,
+  /// The key left of `Z` on ISO keyboards. Alias: `IntlBackslash`.
   OEM102,
+  /// The `/` `?` key on a US layout. Alias: `Slash`.
   OEM2,
+  /// The `` ` `` `~` key on a US layout. Aliases: `Backquote`, `Grave`.
   OEM3,
+  /// The `[` `{` key on a US layout. Alias: `BracketLeft`.
   OEM4,
+  /// The `\` `|` key on a US layout. Alias: `Backslash`.
   OEM5,
+  /// The `]` `}` key on a US layout. Alias: `BracketRight`.
   OEM6,
+  /// The `'` `"` key on a US layout. Aliases: `Quote`, `Apostrophe`.
   OEM7,
   OEM8,
   OEMAttn,
@@ -271,6 +307,7 @@ pub enum Key {
   OEMAx,
   OEMBacktab,
   OEMClear,
+  /// The `,` `<` key on a US layout. Alias: `Comma`.
   OEMComma,
   OEMCopy,
   OEMCusel,
@@ -282,12 +319,15 @@ pub enum Key {
   OEMFJRoya,
   OEMFJTouroku,
   OEMJump,
+  /// The `-` `_` key on a US layout. Alias: `Minus`.
   OEMMinus,
   OEMNECEqual,
   OEMPA1,
   OEMPA2,
   OEMPA3,
+  /// The `.` `>` key on a US layout. Alias: `Period`.
   OEMPeriod,
+  /// The `=` `+` key on a US layout. Alias: `Equal`.
   OEMPlus,
   OEMReset,
   OEMWsctrl,
@@ -315,19 +355,23 @@ pub enum Key {
   Return,
   /// right arrow key
   RightArrow,
+  /// The right Alt key (right Option key on macOS). Alias: `AltRight`.
   RMenu,
   ROption,
   RShift,
+  /// The right Windows key (right Command key on macOS, right Super key on Linux). Alias: `MetaRight`.
   RWin,
   Scroll,
   ScrollLock,
   Select,
   ScriptSwitch,
+  /// The places separator key on the numpad. Alias: `NumpadComma`.
   Separator,
   /// shift key
   Shift,
   /// Lock shift key
   ShiftLock,
+  /// The sleep / standby key. Alias: `Standby`.
   Sleep,
   /// space key
   Space,
@@ -351,6 +395,116 @@ pub enum Key {
   Unicode,
   /// Use `key_other` to provide the raw key value.
   Other,
+  /// The `AltGr` / `AltGraph` key (ISO level 3 shift). Linux only. Aliases: `AltGr`, `ISO_Level3_Shift`.
+  AltGraph,
+  /// The `Hyper` modifier key. Linux only. Alias: `Hyper_L`.
+  Hyper,
+  /// The `Copy` key found on some extended keyboards. Linux only.
+  Copy,
+  /// The `Cut` key found on some extended keyboards. Linux only.
+  Cut,
+  /// The `Paste` key found on some extended keyboards. Linux only.
+  Paste,
+  /// The `Zoom In` key. Linux only. Not the same key as `Zoom`.
+  ZoomIn,
+  /// The `Zoom Out` key. Linux only.
+  ZoomOut,
+  /// The `Log Off` key. Linux only.
+  LogOff,
+  /// The `Hibernate` key. Linux only.
+  Hibernate,
+  /// The `Wake Up` key. Linux only.
+  WakeUp,
+  /// The `All Candidates` IME key. Linux only. Alias: `MultipleCandidate`.
+  AllCandidates,
+  /// The `Compose` key. Linux only. Alias: `Multi_key`.
+  Compose,
+  /// The IME `Previous Candidate` key. Linux only.
+  PreviousCandidate,
+  /// The IME `Single Candidate` key. Linux only.
+  SingleCandidate,
+  /// Switch to the first character group on an ISO/IEC 9995 keyboard. Linux only. Alias: `ISO_First_Group`.
+  GroupFirst,
+  /// Switch to the last character group on an ISO/IEC 9995 keyboard. Linux only. Alias: `ISO_Last_Group`.
+  GroupLast,
+  /// Switch to the next character group on an ISO/IEC 9995 keyboard. Linux only. Alias: `ISO_Next_Group`.
+  GroupNext,
+  /// Switch to the previous character group on an ISO/IEC 9995 keyboard. Linux only. Alias: `ISO_Prev_Group`.
+  GroupPrevious,
+  /// The `Hiragana/Katakana` toggle key on Japanese keyboards. Linux only. Alias: `Hiragana_Katakana`.
+  HiraganaKatakana,
+  /// The `Zenkaku/Hankaku` toggle key on Japanese keyboards. Linux only. Alias: `Zenkaku_Hankaku`.
+  ZenkakuHankaku,
+  /// Media play. Not the play/pause toggle (`MediaPlayPause`) and not the application `Play` key. Linux only.
+  MediaPlay,
+  /// Media pause. Not the play/pause toggle (`MediaPlayPause`). Linux only.
+  MediaPause,
+  /// Media record. Linux only.
+  MediaRecord,
+  /// The `Close` key found on some extended keyboards. Linux only.
+  Close,
+  /// The `New` (new document) key found on some extended keyboards. Linux only.
+  New,
+  /// The `Open` (open document) key found on some extended keyboards. Linux only.
+  Open,
+  /// The `Save` key found on some extended keyboards. Linux only.
+  Save,
+  /// The `Spell Check` key found on some extended keyboards. Linux only. Alias: `Spell`.
+  SpellCheck,
+  /// The `Mail Forward` key. Linux only.
+  MailForward,
+  /// The `Mail Reply` key. Linux only. Alias: `Reply`.
+  MailReply,
+  /// The `Mail Send` key. Linux only. Alias: `Send`.
+  MailSend,
+  /// The calculator launcher key. Linux only. Alias: `Calculator`.
+  LaunchCalculator,
+  /// The calendar launcher key. Linux only. Alias: `Calendar`.
+  LaunchCalendar,
+  /// The music player launcher key. Linux only. Alias: `Music`.
+  LaunchMusicPlayer,
+  /// The `My Computer` launcher key. Linux only. Alias: `MyComputer`.
+  LaunchMyComputer,
+  /// The phone launcher key. Linux only. Alias: `Phone`.
+  LaunchPhone,
+  /// The screen saver launcher key. Linux only. Alias: `ScreenSaver`.
+  LaunchScreenSaver,
+  /// The spreadsheet launcher key. Linux only. Alias: `Excel`.
+  LaunchSpreadsheet,
+  /// The web browser launcher key. Linux only. Alias: `WWW`.
+  LaunchWebBrowser,
+  /// The webcam launcher key. Linux only. Alias: `WebCam`.
+  LaunchWebCam,
+  /// The word processor launcher key. Linux only. Alias: `Word`.
+  LaunchWordProcessor,
+  /// Third generic application launcher key. Linux only. Aliases: `LaunchApplication3`, `Launch2`.
+  LaunchApp3,
+  /// Fourth generic application launcher key. Linux only. Aliases: `LaunchApplication4`, `Launch3`.
+  LaunchApp4,
+  /// Fifth generic application launcher key. Linux only. Aliases: `LaunchApplication5`, `Launch4`.
+  LaunchApp5,
+  /// Sixth generic application launcher key. Linux only. Aliases: `LaunchApplication6`, `Launch5`.
+  LaunchApp6,
+  /// Seventh generic application launcher key. Linux only. Aliases: `LaunchApplication7`, `Launch6`.
+  LaunchApp7,
+  /// Eighth generic application launcher key. Linux only. Aliases: `LaunchApplication8`, `Launch7`.
+  LaunchApp8,
+  /// Ninth generic application launcher key. Linux only. Aliases: `LaunchApplication9`, `Launch8`.
+  LaunchApp9,
+  /// Tenth generic application launcher key. Linux only. Aliases: `LaunchApplication10`, `Launch9`.
+  LaunchApp10,
+  /// Eleventh generic application launcher key. Linux only. Aliases: `LaunchApplication11`, `LaunchA`.
+  LaunchApp11,
+  /// Twelfth generic application launcher key. Linux only. Aliases: `LaunchApplication12`, `LaunchB`.
+  LaunchApp12,
+  /// Thirteenth generic application launcher key. Linux only. Aliases: `LaunchApplication13`, `LaunchC`.
+  LaunchApp13,
+  /// Fourteenth generic application launcher key. Linux only. Aliases: `LaunchApplication14`, `LaunchD`.
+  LaunchApp14,
+  /// Fifteenth generic application launcher key. Linux only. Aliases: `LaunchApplication15`, `LaunchE`.
+  LaunchApp15,
+  /// Sixteenth generic application launcher key. Linux only. Aliases: `LaunchApplication16`, `LaunchF`.
+  LaunchApp16,
 }
 
 impl TryFrom<String> for Key {
@@ -363,6 +517,25 @@ impl TryFrom<String> for Key {
       return Err(Error::from_reason("Key string cannot be empty."));
     }
 
+    // A single punctuation character is the key, not text. Stripping
+    // `-` below would otherwise turn "-" into an empty name.
+    if trimmed.chars().count() == 1 {
+      match trimmed {
+        "-" => return Ok(Key::OEMMinus),
+        "=" => return Ok(Key::OEMPlus),
+        "," => return Ok(Key::OEMComma),
+        "." => return Ok(Key::OEMPeriod),
+        ";" => return Ok(Key::OEM1),
+        "/" => return Ok(Key::OEM2),
+        "`" => return Ok(Key::OEM3),
+        "[" => return Ok(Key::OEM4),
+        "\\" => return Ok(Key::OEM5),
+        "]" => return Ok(Key::OEM6),
+        "'" => return Ok(Key::OEM7),
+        _ => {}
+      }
+    }
+
     let normalized = trimmed.to_ascii_lowercase();
     let normalized: String = normalized
       .chars()
@@ -370,16 +543,16 @@ impl TryFrom<String> for Key {
       .collect();
 
     match normalized.as_str() {
-      "num0" | "0" => Ok(Key::Num0),
-      "num1" | "1" => Ok(Key::Num1),
-      "num2" | "2" => Ok(Key::Num2),
-      "num3" | "3" => Ok(Key::Num3),
-      "num4" | "4" => Ok(Key::Num4),
-      "num5" | "5" => Ok(Key::Num5),
-      "num6" | "6" => Ok(Key::Num6),
-      "num7" | "7" => Ok(Key::Num7),
-      "num8" | "8" => Ok(Key::Num8),
-      "num9" | "9" => Ok(Key::Num9),
+      "num0" | "0" | "digit0" => Ok(Key::Num0),
+      "num1" | "1" | "digit1" => Ok(Key::Num1),
+      "num2" | "2" | "digit2" => Ok(Key::Num2),
+      "num3" | "3" | "digit3" => Ok(Key::Num3),
+      "num4" | "4" | "digit4" => Ok(Key::Num4),
+      "num5" | "5" | "digit5" => Ok(Key::Num5),
+      "num6" | "6" | "digit6" => Ok(Key::Num6),
+      "num7" | "7" | "digit7" => Ok(Key::Num7),
+      "num8" | "8" | "digit8" => Ok(Key::Num8),
+      "num9" | "9" | "digit9" => Ok(Key::Num9),
       "a" => Ok(Key::A),
       "b" => Ok(Key::B),
       "c" => Ok(Key::C),
@@ -411,7 +584,7 @@ impl TryFrom<String> for Key {
       "accept" => Ok(Key::Accept),
       "add" => Ok(Key::Add),
       "alt" => Ok(Key::Alt),
-      "apps" => Ok(Key::Apps),
+      "apps" | "contextmenu" | "menu" => Ok(Key::Apps),
       "attn" => Ok(Key::Attn),
       "backspace" => Ok(Key::Backspace),
       "break" => Ok(Key::Break),
@@ -431,22 +604,22 @@ impl TryFrom<String> for Key {
       "contrastup" => Ok(Key::ContrastUp),
       "contrastdown" => Ok(Key::ContrastDown),
       "control" => Ok(Key::Control),
-      "convert" => Ok(Key::Convert),
+      "convert" | "henkan" => Ok(Key::Convert),
       "crsel" => Ok(Key::Crsel),
-      "dbealphanumeric" => Ok(Key::DBEAlphanumeric),
-      "dbecodeinput" => Ok(Key::DBECodeinput),
+      "dbealphanumeric" | "eisu" | "alphanumeric" => Ok(Key::DBEAlphanumeric),
+      "dbecodeinput" | "codeinput" => Ok(Key::DBECodeinput),
       "dbedeterminestring" => Ok(Key::DBEDetermineString),
       "dbeenterdlgconversionmode" => Ok(Key::DBEEnterDLGConversionMode),
       "dbeenterimeconfigmode" => Ok(Key::DBEEnterIMEConfigMode),
       "dbeenterwordregistermode" => Ok(Key::DBEEnterWordRegisterMode),
       "dbeflushstring" => Ok(Key::DBEFlushString),
-      "dbehiragana" => Ok(Key::DBEHiragana),
-      "dbekatakana" => Ok(Key::DBEKatakana),
+      "dbehiragana" | "hiragana" => Ok(Key::DBEHiragana),
+      "dbekatakana" | "katakana" => Ok(Key::DBEKatakana),
       "dbenocodepoint" => Ok(Key::DBENoCodepoint),
       "dbenoroman" => Ok(Key::DBENoRoman),
-      "dberoman" => Ok(Key::DBERoman),
-      "dbesbcschar" => Ok(Key::DBESBCSChar),
-      "dbeschar" => Ok(Key::DBESChar),
+      "dberoman" | "romaji" => Ok(Key::DBERoman),
+      "dbesbcschar" | "hankaku" => Ok(Key::DBESBCSChar),
+      "dbeschar" | "zenkaku" => Ok(Key::DBESChar),
       "decimal" => Ok(Key::Decimal),
       "delete" => Ok(Key::Delete),
       "divide" => Ok(Key::Divide),
@@ -521,7 +694,7 @@ impl TryFrom<String> for Key {
       "gamepadview" => Ok(Key::GamepadView),
       "gamepadx" => Ok(Key::GamepadX),
       "gamepady" => Ok(Key::GamepadY),
-      "hangeul" => Ok(Key::Hangeul),
+      "hangeul" | "hangulmode" => Ok(Key::Hangeul),
       "hangul" => Ok(Key::Hangul),
       "hanja" => Ok(Key::Hanja),
       "help" => Ok(Key::Help),
@@ -535,24 +708,24 @@ impl TryFrom<String> for Key {
       "imeoff" => Ok(Key::IMEOff),
       "imeon" => Ok(Key::IMEOn),
       "insert" => Ok(Key::Insert),
-      "junja" => Ok(Key::Junja),
-      "kana" => Ok(Key::Kana),
-      "kanji" => Ok(Key::Kanji),
-      "launchapp1" => Ok(Key::LaunchApp1),
-      "launchapp2" => Ok(Key::LaunchApp2),
+      "junja" | "junjamode" => Ok(Key::Junja),
+      "kana" | "kanamode" => Ok(Key::Kana),
+      "kanji" | "kanjimode" => Ok(Key::Kanji),
+      "launchapp1" | "launchapplication1" => Ok(Key::LaunchApp1),
+      "launchapp2" | "launchapplication2" => Ok(Key::LaunchApp2),
       "launchmail" => Ok(Key::LaunchMail),
-      "launchmediaselect" => Ok(Key::LaunchMediaSelect),
+      "launchmediaselect" | "launchmediaplayer" => Ok(Key::LaunchMediaSelect),
       "launchpad" => Ok(Key::Launchpad),
       "launchpanel" => Ok(Key::LaunchPanel),
       "lbutton" => Ok(Key::LButton),
       "lcontrol" => Ok(Key::LControl),
       "leftarrow" | "left" => Ok(Key::LeftArrow),
       "linefeed" => Ok(Key::Linefeed),
-      "lmenu" => Ok(Key::LMenu),
+      "lmenu" | "altleft" => Ok(Key::LMenu),
       "lshift" => Ok(Key::LShift),
-      "lwin" => Ok(Key::LWin),
+      "lwin" | "metaleft" => Ok(Key::LWin),
       "mbutton" => Ok(Key::MButton),
-      "mediafast" => Ok(Key::MediaFast),
+      "mediafast" | "mediafastforward" => Ok(Key::MediaFast),
       "medianexttrack" => Ok(Key::MediaNextTrack),
       "mediaplaypause" => Ok(Key::MediaPlayPause),
       "mediaprevtrack" => Ok(Key::MediaPrevTrack),
@@ -571,7 +744,7 @@ impl TryFrom<String> for Key {
       "navigationup" => Ok(Key::NavigationUp),
       "navigationview" => Ok(Key::NavigationView),
       "noname" => Ok(Key::NoName),
-      "nonconvert" => Ok(Key::NonConvert),
+      "nonconvert" | "muhenkan" => Ok(Key::NonConvert),
       "none" => Ok(Key::None),
       "numlock" => Ok(Key::Numlock),
       "numpad0" => Ok(Key::Numpad0),
@@ -584,21 +757,21 @@ impl TryFrom<String> for Key {
       "numpad7" => Ok(Key::Numpad7),
       "numpad8" => Ok(Key::Numpad8),
       "numpad9" => Ok(Key::Numpad9),
-      "oem1" => Ok(Key::OEM1),
-      "oem102" => Ok(Key::OEM102),
-      "oem2" => Ok(Key::OEM2),
-      "oem3" => Ok(Key::OEM3),
-      "oem4" => Ok(Key::OEM4),
-      "oem5" => Ok(Key::OEM5),
-      "oem6" => Ok(Key::OEM6),
-      "oem7" => Ok(Key::OEM7),
+      "oem1" | "semicolon" => Ok(Key::OEM1),
+      "oem102" | "intlbackslash" => Ok(Key::OEM102),
+      "oem2" | "slash" => Ok(Key::OEM2),
+      "oem3" | "backquote" | "grave" => Ok(Key::OEM3),
+      "oem4" | "bracketleft" => Ok(Key::OEM4),
+      "oem5" | "backslash" => Ok(Key::OEM5),
+      "oem6" | "bracketright" => Ok(Key::OEM6),
+      "oem7" | "quote" | "apostrophe" => Ok(Key::OEM7),
       "oem8" => Ok(Key::OEM8),
       "oemattn" => Ok(Key::OEMAttn),
       "oemauto" => Ok(Key::OEMAuto),
       "oemax" => Ok(Key::OEMAx),
       "oembacktab" => Ok(Key::OEMBacktab),
       "oemclear" => Ok(Key::OEMClear),
-      "oemcomma" => Ok(Key::OEMComma),
+      "oemcomma" | "comma" => Ok(Key::OEMComma),
       "oemcopy" => Ok(Key::OEMCopy),
       "oemcusel" => Ok(Key::OEMCusel),
       "oemenlw" => Ok(Key::OEMEnlw),
@@ -609,13 +782,13 @@ impl TryFrom<String> for Key {
       "oemfjroya" => Ok(Key::OEMFJRoya),
       "oemfjtouroku" => Ok(Key::OEMFJTouroku),
       "oemjump" => Ok(Key::OEMJump),
-      "oemminus" => Ok(Key::OEMMinus),
+      "oemminus" | "minus" => Ok(Key::OEMMinus),
       "oemnecequal" => Ok(Key::OEMNECEqual),
       "oempa1" => Ok(Key::OEMPA1),
       "oempa2" => Ok(Key::OEMPA2),
       "oempa3" => Ok(Key::OEMPA3),
-      "oemperiod" => Ok(Key::OEMPeriod),
-      "oemplus" => Ok(Key::OEMPlus),
+      "oemperiod" | "period" => Ok(Key::OEMPeriod),
+      "oemplus" | "equal" => Ok(Key::OEMPlus),
       "oemreset" => Ok(Key::OEMReset),
       "oemwsctrl" => Ok(Key::OEMWsctrl),
       "option" => Ok(Key::Option),
@@ -633,18 +806,18 @@ impl TryFrom<String> for Key {
       "rcontrol" => Ok(Key::RControl),
       "redo" => Ok(Key::Redo),
       "rightarrow" | "right" => Ok(Key::RightArrow),
-      "rmenu" => Ok(Key::RMenu),
+      "rmenu" | "altright" => Ok(Key::RMenu),
       "roption" => Ok(Key::ROption),
       "rshift" => Ok(Key::RShift),
-      "rwin" => Ok(Key::RWin),
+      "rwin" | "metaright" => Ok(Key::RWin),
       "scroll" => Ok(Key::Scroll),
       "scrolllock" => Ok(Key::ScrollLock),
       "select" => Ok(Key::Select),
       "scriptswitch" => Ok(Key::ScriptSwitch),
-      "separator" => Ok(Key::Separator),
+      "separator" | "numpadcomma" => Ok(Key::Separator),
       "shift" => Ok(Key::Shift),
       "shiftlock" => Ok(Key::ShiftLock),
-      "sleep" => Ok(Key::Sleep),
+      "sleep" | "standby" => Ok(Key::Sleep),
       "space" => Ok(Key::Space),
       "subtract" => Ok(Key::Subtract),
       "sysreq" => Ok(Key::SysReq),
@@ -661,13 +834,68 @@ impl TryFrom<String> for Key {
       "zoom" => Ok(Key::Zoom),
       "unicode" => Ok(Key::Unicode),
       "other" => Ok(Key::Other),
+      "altgraph" | "altgr" | "isolevel3shift" => Ok(Key::AltGraph),
+      "hyper" | "hyperl" => Ok(Key::Hyper),
+      "copy" => Ok(Key::Copy),
+      "cut" => Ok(Key::Cut),
+      "paste" => Ok(Key::Paste),
+      "zoomin" => Ok(Key::ZoomIn),
+      "zoomout" => Ok(Key::ZoomOut),
+      "logoff" => Ok(Key::LogOff),
+      "hibernate" => Ok(Key::Hibernate),
+      "wakeup" => Ok(Key::WakeUp),
+      "allcandidates" | "multiplecandidate" => Ok(Key::AllCandidates),
+      "compose" | "multikey" => Ok(Key::Compose),
+      "previouscandidate" => Ok(Key::PreviousCandidate),
+      "singlecandidate" => Ok(Key::SingleCandidate),
+      "groupfirst" | "isofirstgroup" => Ok(Key::GroupFirst),
+      "grouplast" | "isolastgroup" => Ok(Key::GroupLast),
+      "groupnext" | "isonextgroup" => Ok(Key::GroupNext),
+      "groupprevious" | "isoprevgroup" => Ok(Key::GroupPrevious),
+      "hiraganakatakana" => Ok(Key::HiraganaKatakana),
+      "zenkakuhankaku" => Ok(Key::ZenkakuHankaku),
+      "mediaplay" => Ok(Key::MediaPlay),
+      "mediapause" => Ok(Key::MediaPause),
+      "mediarecord" => Ok(Key::MediaRecord),
+      "close" => Ok(Key::Close),
+      "new" => Ok(Key::New),
+      "open" => Ok(Key::Open),
+      "save" => Ok(Key::Save),
+      "spellcheck" | "spell" => Ok(Key::SpellCheck),
+      "mailforward" => Ok(Key::MailForward),
+      "mailreply" | "reply" => Ok(Key::MailReply),
+      "mailsend" | "send" => Ok(Key::MailSend),
+      "launchcalculator" | "calculator" => Ok(Key::LaunchCalculator),
+      "launchcalendar" | "calendar" => Ok(Key::LaunchCalendar),
+      "launchmusicplayer" | "music" => Ok(Key::LaunchMusicPlayer),
+      "launchmycomputer" | "mycomputer" => Ok(Key::LaunchMyComputer),
+      "launchphone" | "phone" => Ok(Key::LaunchPhone),
+      "launchscreensaver" | "screensaver" => Ok(Key::LaunchScreenSaver),
+      "launchspreadsheet" | "excel" => Ok(Key::LaunchSpreadsheet),
+      "launchwebbrowser" | "www" => Ok(Key::LaunchWebBrowser),
+      "launchwebcam" | "webcam" => Ok(Key::LaunchWebCam),
+      "launchwordprocessor" | "word" => Ok(Key::LaunchWordProcessor),
+      "launchapp3" | "launchapplication3" | "launch2" => Ok(Key::LaunchApp3),
+      "launchapp4" | "launchapplication4" | "launch3" => Ok(Key::LaunchApp4),
+      "launchapp5" | "launchapplication5" | "launch4" => Ok(Key::LaunchApp5),
+      "launchapp6" | "launchapplication6" | "launch5" => Ok(Key::LaunchApp6),
+      "launchapp7" | "launchapplication7" | "launch6" => Ok(Key::LaunchApp7),
+      "launchapp8" | "launchapplication8" | "launch7" => Ok(Key::LaunchApp8),
+      "launchapp9" | "launchapplication9" | "launch8" => Ok(Key::LaunchApp9),
+      "launchapp10" | "launchapplication10" | "launch9" => Ok(Key::LaunchApp10),
+      "launchapp11" | "launchapplication11" | "launcha" => Ok(Key::LaunchApp11),
+      "launchapp12" | "launchapplication12" | "launchb" => Ok(Key::LaunchApp12),
+      "launchapp13" | "launchapplication13" | "launchc" => Ok(Key::LaunchApp13),
+      "launchapp14" | "launchapplication14" | "launchd" => Ok(Key::LaunchApp14),
+      "launchapp15" | "launchapplication15" | "launche" => Ok(Key::LaunchApp15),
+      "launchapp16" | "launchapplication16" | "launchf" => Ok(Key::LaunchApp16),
       _ => Err(Error::from_reason(format!("Unknown key string: {trimmed}"))),
     }
   }
 }
 
 /// Convert a string representation into a `Key`.
-#[napi]
+#[napi(catch_unwind)]
 pub fn key_from_string(value: String) -> napi::Result<Key> {
   value.try_into()
 }
@@ -682,77 +910,41 @@ impl TryFrom<Key> for SimulangKey {
         "Key::Unicode requires key_unicode(char).",
       )),
       Key::Other => Err(Error::from_reason("Key::Other requires key_other(value).")),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::Num0 => Ok(SimulangKey::Num0),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::Num1 => Ok(SimulangKey::Num1),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::Num2 => Ok(SimulangKey::Num2),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::Num3 => Ok(SimulangKey::Num3),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::Num4 => Ok(SimulangKey::Num4),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::Num5 => Ok(SimulangKey::Num5),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::Num6 => Ok(SimulangKey::Num6),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::Num7 => Ok(SimulangKey::Num7),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::Num8 => Ok(SimulangKey::Num8),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::Num9 => Ok(SimulangKey::Num9),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::A => Ok(SimulangKey::A),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::B => Ok(SimulangKey::B),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::C => Ok(SimulangKey::C),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::D => Ok(SimulangKey::D),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::E => Ok(SimulangKey::E),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::F => Ok(SimulangKey::F),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::G => Ok(SimulangKey::G),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::H => Ok(SimulangKey::H),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::I => Ok(SimulangKey::I),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::J => Ok(SimulangKey::J),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::K => Ok(SimulangKey::K),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::L => Ok(SimulangKey::L),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::M => Ok(SimulangKey::M),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::N => Ok(SimulangKey::N),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::O => Ok(SimulangKey::O),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::P => Ok(SimulangKey::P),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::Q => Ok(SimulangKey::Q),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::R => Ok(SimulangKey::R),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::S => Ok(SimulangKey::S),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::T => Ok(SimulangKey::T),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::U => Ok(SimulangKey::U),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::V => Ok(SimulangKey::V),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::W => Ok(SimulangKey::W),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::X => Ok(SimulangKey::X),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::Y => Ok(SimulangKey::Y),
-      #[cfg(any(target_os = "windows", target_os = "macos"))]
       Key::Z => Ok(SimulangKey::Z),
       #[cfg(target_os = "windows")]
       Key::AbntC1 => Ok(SimulangKey::AbntC1),
@@ -762,50 +954,47 @@ impl TryFrom<Key> for SimulangKey {
       Key::Accept => Ok(SimulangKey::Accept),
       Key::Add => Ok(SimulangKey::Add),
       Key::Alt => Ok(SimulangKey::Alt),
-      #[cfg(target_os = "windows")]
       Key::Apps => Ok(SimulangKey::Apps),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::Attn => Ok(SimulangKey::Attn),
       Key::Backspace => Ok(SimulangKey::Backspace),
-      #[cfg(all(unix, not(target_os = "macos")))]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::Break => Ok(SimulangKey::Break),
       #[cfg(all(unix, not(target_os = "macos")))]
       Key::Begin => Ok(SimulangKey::Begin),
-      #[cfg(target_os = "macos")]
+      #[cfg(unix)]
       Key::BrightnessDown => Ok(SimulangKey::BrightnessDown),
-      #[cfg(target_os = "macos")]
+      #[cfg(unix)]
       Key::BrightnessUp => Ok(SimulangKey::BrightnessUp),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::BrowserBack => Ok(SimulangKey::BrowserBack),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::BrowserFavorites => Ok(SimulangKey::BrowserFavorites),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::BrowserForward => Ok(SimulangKey::BrowserForward),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::BrowserHome => Ok(SimulangKey::BrowserHome),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::BrowserRefresh => Ok(SimulangKey::BrowserRefresh),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::BrowserSearch => Ok(SimulangKey::BrowserSearch),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::BrowserStop => Ok(SimulangKey::BrowserStop),
       #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::Cancel => Ok(SimulangKey::Cancel),
       Key::CapsLock => Ok(SimulangKey::CapsLock),
-      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::Clear => Ok(SimulangKey::Clear),
       #[cfg(target_os = "macos")]
       Key::ContrastUp => Ok(SimulangKey::ContrastUp),
       #[cfg(target_os = "macos")]
       Key::ContrastDown => Ok(SimulangKey::ContrastDown),
       Key::Control => Ok(SimulangKey::Control),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::Convert => Ok(SimulangKey::Convert),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::Crsel => Ok(SimulangKey::Crsel),
-      #[cfg(target_os = "windows")]
       Key::DBEAlphanumeric => Ok(SimulangKey::DBEAlphanumeric),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::DBECodeinput => Ok(SimulangKey::DBECodeinput),
       #[cfg(target_os = "windows")]
       Key::DBEDetermineString => Ok(SimulangKey::DBEDetermineString),
@@ -817,33 +1006,33 @@ impl TryFrom<Key> for SimulangKey {
       Key::DBEEnterWordRegisterMode => Ok(SimulangKey::DBEEnterWordRegisterMode),
       #[cfg(target_os = "windows")]
       Key::DBEFlushString => Ok(SimulangKey::DBEFlushString),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::DBEHiragana => Ok(SimulangKey::DBEHiragana),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::DBEKatakana => Ok(SimulangKey::DBEKatakana),
       #[cfg(target_os = "windows")]
       Key::DBENoCodepoint => Ok(SimulangKey::DBENoCodepoint),
       #[cfg(target_os = "windows")]
       Key::DBENoRoman => Ok(SimulangKey::DBENoRoman),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::DBERoman => Ok(SimulangKey::DBERoman),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::DBESBCSChar => Ok(SimulangKey::DBESBCSChar),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::DBESChar => Ok(SimulangKey::DBESChar),
       Key::Decimal => Ok(SimulangKey::Decimal),
       Key::Delete => Ok(SimulangKey::Delete),
       Key::Divide => Ok(SimulangKey::Divide),
       Key::DownArrow => Ok(SimulangKey::DownArrow),
-      #[cfg(target_os = "macos")]
+      #[cfg(unix)]
       Key::Eject => Ok(SimulangKey::Eject),
       Key::End => Ok(SimulangKey::End),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::Ereof => Ok(SimulangKey::Ereof),
       Key::Escape => Ok(SimulangKey::Escape),
       #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::Execute => Ok(SimulangKey::Execute),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::Exsel => Ok(SimulangKey::Exsel),
       Key::F1 => Ok(SimulangKey::F1),
       Key::F2 => Ok(SimulangKey::F2),
@@ -949,7 +1138,7 @@ impl TryFrom<Key> for SimulangKey {
       Key::GamepadX => Ok(SimulangKey::GamepadX),
       #[cfg(target_os = "windows")]
       Key::GamepadY => Ok(SimulangKey::GamepadY),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::Hangeul => Ok(SimulangKey::Hangeul),
       #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::Hangul => Ok(SimulangKey::Hangul),
@@ -963,11 +1152,11 @@ impl TryFrom<Key> for SimulangKey {
       Key::IcoClear => Ok(SimulangKey::IcoClear),
       #[cfg(target_os = "windows")]
       Key::IcoHelp => Ok(SimulangKey::IcoHelp),
-      #[cfg(target_os = "macos")]
+      #[cfg(unix)]
       Key::IlluminationDown => Ok(SimulangKey::IlluminationDown),
-      #[cfg(target_os = "macos")]
+      #[cfg(unix)]
       Key::IlluminationUp => Ok(SimulangKey::IlluminationUp),
-      #[cfg(target_os = "macos")]
+      #[cfg(unix)]
       Key::IlluminationToggle => Ok(SimulangKey::IlluminationToggle),
       #[cfg(target_os = "windows")]
       Key::IMEOff => Ok(SimulangKey::IMEOff),
@@ -975,19 +1164,18 @@ impl TryFrom<Key> for SimulangKey {
       Key::IMEOn => Ok(SimulangKey::IMEOn),
       #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::Insert => Ok(SimulangKey::Insert),
-      #[cfg(target_os = "windows")]
-      Key::Junja => Ok(SimulangKey::Junja),
-      #[cfg(target_os = "windows")]
-      Key::Kana => Ok(SimulangKey::Kana),
       #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
+      Key::Junja => Ok(SimulangKey::Junja),
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
+      Key::Kana => Ok(SimulangKey::Kana),
       Key::Kanji => Ok(SimulangKey::Kanji),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::LaunchApp1 => Ok(SimulangKey::LaunchApp1),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::LaunchApp2 => Ok(SimulangKey::LaunchApp2),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::LaunchMail => Ok(SimulangKey::LaunchMail),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::LaunchMediaSelect => Ok(SimulangKey::LaunchMediaSelect),
       #[cfg(target_os = "macos")]
       Key::Launchpad => Ok(SimulangKey::Launchpad),
@@ -999,19 +1187,17 @@ impl TryFrom<Key> for SimulangKey {
       Key::LeftArrow => Ok(SimulangKey::LeftArrow),
       #[cfg(all(unix, not(target_os = "macos")))]
       Key::Linefeed => Ok(SimulangKey::Linefeed),
-      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::LMenu => Ok(SimulangKey::LMenu),
       Key::LShift => Ok(SimulangKey::LShift),
-      #[cfg(target_os = "windows")]
       Key::LWin => Ok(SimulangKey::LWin),
       #[cfg(target_os = "windows")]
       Key::MButton => Ok(SimulangKey::MButton),
-      #[cfg(target_os = "macos")]
+      #[cfg(unix)]
       Key::MediaFast => Ok(SimulangKey::MediaFast),
       Key::MediaNextTrack => Ok(SimulangKey::MediaNextTrack),
       Key::MediaPlayPause => Ok(SimulangKey::MediaPlayPause),
       Key::MediaPrevTrack => Ok(SimulangKey::MediaPrevTrack),
-      #[cfg(target_os = "macos")]
+      #[cfg(unix)]
       Key::MediaRewind => Ok(SimulangKey::MediaRewind),
       #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::MediaStop => Ok(SimulangKey::MediaStop),
@@ -1039,14 +1225,12 @@ impl TryFrom<Key> for SimulangKey {
       Key::NavigationView => Ok(SimulangKey::NavigationView),
       #[cfg(target_os = "windows")]
       Key::NoName => Ok(SimulangKey::NoName),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::NonConvert => Ok(SimulangKey::NonConvert),
       #[cfg(target_os = "windows")]
       Key::None => Ok(SimulangKey::None),
       #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::Numlock => Ok(SimulangKey::Numlock),
-      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
-      Key::NumpadEnter => Ok(SimulangKey::NumpadEnter),
       Key::Numpad0 => Ok(SimulangKey::Numpad0),
       Key::Numpad1 => Ok(SimulangKey::Numpad1),
       Key::Numpad2 => Ok(SimulangKey::Numpad2),
@@ -1057,21 +1241,14 @@ impl TryFrom<Key> for SimulangKey {
       Key::Numpad7 => Ok(SimulangKey::Numpad7),
       Key::Numpad8 => Ok(SimulangKey::Numpad8),
       Key::Numpad9 => Ok(SimulangKey::Numpad9),
-      #[cfg(target_os = "windows")]
+      Key::NumpadEnter => Ok(SimulangKey::NumpadEnter),
       Key::OEM1 => Ok(SimulangKey::OEM1),
-      #[cfg(target_os = "windows")]
       Key::OEM102 => Ok(SimulangKey::OEM102),
-      #[cfg(target_os = "windows")]
       Key::OEM2 => Ok(SimulangKey::OEM2),
-      #[cfg(target_os = "windows")]
       Key::OEM3 => Ok(SimulangKey::OEM3),
-      #[cfg(target_os = "windows")]
       Key::OEM4 => Ok(SimulangKey::OEM4),
-      #[cfg(target_os = "windows")]
       Key::OEM5 => Ok(SimulangKey::OEM5),
-      #[cfg(target_os = "windows")]
       Key::OEM6 => Ok(SimulangKey::OEM6),
-      #[cfg(target_os = "windows")]
       Key::OEM7 => Ok(SimulangKey::OEM7),
       #[cfg(target_os = "windows")]
       Key::OEM8 => Ok(SimulangKey::OEM8),
@@ -1085,7 +1262,6 @@ impl TryFrom<Key> for SimulangKey {
       Key::OEMBacktab => Ok(SimulangKey::OEMBacktab),
       #[cfg(target_os = "windows")]
       Key::OEMClear => Ok(SimulangKey::OEMClear),
-      #[cfg(target_os = "windows")]
       Key::OEMComma => Ok(SimulangKey::OEMComma),
       #[cfg(target_os = "windows")]
       Key::OEMCopy => Ok(SimulangKey::OEMCopy),
@@ -1105,28 +1281,25 @@ impl TryFrom<Key> for SimulangKey {
       Key::OEMFJRoya => Ok(SimulangKey::OEMFJRoya),
       #[cfg(target_os = "windows")]
       Key::OEMFJTouroku => Ok(SimulangKey::OEMFJTouroku),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::OEMJump => Ok(SimulangKey::OEMJump),
-      #[cfg(target_os = "windows")]
       Key::OEMMinus => Ok(SimulangKey::OEMMinus),
       #[cfg(target_os = "windows")]
       Key::OEMNECEqual => Ok(SimulangKey::OEMNECEqual),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::OEMPA1 => Ok(SimulangKey::OEMPA1),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::OEMPA2 => Ok(SimulangKey::OEMPA2),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::OEMPA3 => Ok(SimulangKey::OEMPA3),
-      #[cfg(target_os = "windows")]
       Key::OEMPeriod => Ok(SimulangKey::OEMPeriod),
-      #[cfg(target_os = "windows")]
       Key::OEMPlus => Ok(SimulangKey::OEMPlus),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::OEMReset => Ok(SimulangKey::OEMReset),
       #[cfg(target_os = "windows")]
       Key::OEMWsctrl => Ok(SimulangKey::OEMWsctrl),
       Key::Option => Ok(SimulangKey::Option),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::PA1 => Ok(SimulangKey::PA1),
       #[cfg(target_os = "windows")]
       Key::Packet => Ok(SimulangKey::Packet),
@@ -1134,48 +1307,46 @@ impl TryFrom<Key> for SimulangKey {
       Key::PageUp => Ok(SimulangKey::PageUp),
       #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::Pause => Ok(SimulangKey::Pause),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::Play => Ok(SimulangKey::Play),
-      #[cfg(target_os = "macos")]
+      #[cfg(unix)]
       Key::Power => Ok(SimulangKey::Power),
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
+      #[allow(deprecated)]
+      Key::Print => Ok(SimulangKey::Print),
       #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::PrintScr => Ok(SimulangKey::PrintScr),
       #[cfg(target_os = "windows")]
       Key::Processkey => Ok(SimulangKey::Processkey),
       #[cfg(target_os = "windows")]
       Key::RButton => Ok(SimulangKey::RButton),
-      #[cfg(target_os = "macos")]
       Key::RCommand => Ok(SimulangKey::RCommand),
       Key::RControl => Ok(SimulangKey::RControl),
       #[cfg(all(unix, not(target_os = "macos")))]
       Key::Redo => Ok(SimulangKey::Redo),
       Key::Return => Ok(SimulangKey::Return),
       Key::RightArrow => Ok(SimulangKey::RightArrow),
-      #[cfg(target_os = "windows")]
       Key::RMenu => Ok(SimulangKey::RMenu),
-      #[cfg(target_os = "macos")]
       Key::ROption => Ok(SimulangKey::ROption),
       Key::RShift => Ok(SimulangKey::RShift),
-      #[cfg(target_os = "windows")]
       Key::RWin => Ok(SimulangKey::RWin),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::Scroll => Ok(SimulangKey::Scroll),
-      #[cfg(all(unix, not(target_os = "macos")))]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::ScrollLock => Ok(SimulangKey::ScrollLock),
       #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::Select => Ok(SimulangKey::Select),
-      #[cfg(all(unix, not(target_os = "macos")))]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::ScriptSwitch => Ok(SimulangKey::ScriptSwitch),
-      #[cfg(target_os = "windows")]
       Key::Separator => Ok(SimulangKey::Separator),
       Key::Shift => Ok(SimulangKey::Shift),
       #[cfg(all(unix, not(target_os = "macos")))]
       Key::ShiftLock => Ok(SimulangKey::ShiftLock),
-      #[cfg(target_os = "windows")]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::Sleep => Ok(SimulangKey::Sleep),
       Key::Space => Ok(SimulangKey::Space),
       Key::Subtract => Ok(SimulangKey::Subtract),
-      #[cfg(all(unix, not(target_os = "macos")))]
+      #[cfg(any(target_os = "windows", all(unix, not(target_os = "macos"))))]
       Key::SysReq => Ok(SimulangKey::SysReq),
       Key::Tab => Ok(SimulangKey::Tab),
       #[cfg(all(unix, not(target_os = "macos")))]
@@ -1194,6 +1365,116 @@ impl TryFrom<Key> for SimulangKey {
       Key::XButton2 => Ok(SimulangKey::XButton2),
       #[cfg(target_os = "windows")]
       Key::Zoom => Ok(SimulangKey::Zoom),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::AltGraph => Ok(SimulangKey::AltGraph),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::Hyper => Ok(SimulangKey::Hyper),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::Copy => Ok(SimulangKey::Copy),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::Cut => Ok(SimulangKey::Cut),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::Paste => Ok(SimulangKey::Paste),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::ZoomIn => Ok(SimulangKey::ZoomIn),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::ZoomOut => Ok(SimulangKey::ZoomOut),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LogOff => Ok(SimulangKey::LogOff),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::Hibernate => Ok(SimulangKey::Hibernate),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::WakeUp => Ok(SimulangKey::WakeUp),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::AllCandidates => Ok(SimulangKey::AllCandidates),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::Compose => Ok(SimulangKey::Compose),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::PreviousCandidate => Ok(SimulangKey::PreviousCandidate),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::SingleCandidate => Ok(SimulangKey::SingleCandidate),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::GroupFirst => Ok(SimulangKey::GroupFirst),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::GroupLast => Ok(SimulangKey::GroupLast),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::GroupNext => Ok(SimulangKey::GroupNext),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::GroupPrevious => Ok(SimulangKey::GroupPrevious),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::HiraganaKatakana => Ok(SimulangKey::HiraganaKatakana),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::ZenkakuHankaku => Ok(SimulangKey::ZenkakuHankaku),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::MediaPlay => Ok(SimulangKey::MediaPlay),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::MediaPause => Ok(SimulangKey::MediaPause),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::MediaRecord => Ok(SimulangKey::MediaRecord),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::Close => Ok(SimulangKey::Close),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::New => Ok(SimulangKey::New),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::Open => Ok(SimulangKey::Open),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::Save => Ok(SimulangKey::Save),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::SpellCheck => Ok(SimulangKey::SpellCheck),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::MailForward => Ok(SimulangKey::MailForward),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::MailReply => Ok(SimulangKey::MailReply),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::MailSend => Ok(SimulangKey::MailSend),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchCalculator => Ok(SimulangKey::LaunchCalculator),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchCalendar => Ok(SimulangKey::LaunchCalendar),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchMusicPlayer => Ok(SimulangKey::LaunchMusicPlayer),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchMyComputer => Ok(SimulangKey::LaunchMyComputer),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchPhone => Ok(SimulangKey::LaunchPhone),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchScreenSaver => Ok(SimulangKey::LaunchScreenSaver),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchSpreadsheet => Ok(SimulangKey::LaunchSpreadsheet),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchWebBrowser => Ok(SimulangKey::LaunchWebBrowser),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchWebCam => Ok(SimulangKey::LaunchWebCam),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchWordProcessor => Ok(SimulangKey::LaunchWordProcessor),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchApp3 => Ok(SimulangKey::LaunchApp3),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchApp4 => Ok(SimulangKey::LaunchApp4),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchApp5 => Ok(SimulangKey::LaunchApp5),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchApp6 => Ok(SimulangKey::LaunchApp6),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchApp7 => Ok(SimulangKey::LaunchApp7),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchApp8 => Ok(SimulangKey::LaunchApp8),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchApp9 => Ok(SimulangKey::LaunchApp9),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchApp10 => Ok(SimulangKey::LaunchApp10),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchApp11 => Ok(SimulangKey::LaunchApp11),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchApp12 => Ok(SimulangKey::LaunchApp12),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchApp13 => Ok(SimulangKey::LaunchApp13),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchApp14 => Ok(SimulangKey::LaunchApp14),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchApp15 => Ok(SimulangKey::LaunchApp15),
+      #[cfg(all(unix, not(target_os = "macos")))]
+      Key::LaunchApp16 => Ok(SimulangKey::LaunchApp16),
       other => Err(Error::from_reason(format!(
         "Key {other:?} is not supported on this platform.",
       ))),

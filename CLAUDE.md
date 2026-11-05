@@ -33,6 +33,11 @@ restatement elsewhere.
 - Many objects are **handles to platform resources** (windows, audio devices,
   accessibility trees, file/directory handles). Their lifetime matters;
   dropping them can free the underlying resource.
+- **Check `canSee()`, `canUseAccessibility()`, and `canControl()` before a
+  run.** Each returns `null` when this process can see the screen, use
+  accessibility trees, or control other apps, and otherwise a reason that
+  names what stands in the way and the fix. None of them opens a permission
+  prompt.
 - `AskModel.askJson` returns one JSON value and checks the reply locally against the schema you pass.
 - Decisions are one `DecisionModel.decide(state, questions)` call. Name each question with `noul`, `choice`, or `score`. The same name is a property of the result: `answers.urgent.probability`, `answers.dept.choice`, `answers.severity.nearest()`.
 - **`searchRelative(candidates, landmarks, relation)`** is a free

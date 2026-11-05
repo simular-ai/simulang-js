@@ -16,7 +16,7 @@ pub struct Image {
 
 #[napi]
 impl Image {
-  #[napi]
+  #[napi(catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// Path includes the file name and the extension.
   pub fn save(&self, path: String) -> napi::Result<()> {
@@ -26,7 +26,7 @@ impl Image {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Draws a cross-hair grid on the image.
   ///
   /// Grid squares have the specified `width` and `height`.
@@ -37,7 +37,7 @@ impl Image {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Paints a filled disc on the image. Useful for visualizing point
   /// coordinates returned from grounding, layout queries, etc.
   ///
@@ -65,7 +65,7 @@ impl Image {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Draws the outline of the axis-aligned rectangle `bounds` on the image.
   /// Useful for visualizing bounding boxes returned from grounding, element /
   /// layout queries, ground-truth annotations, etc.
@@ -92,7 +92,7 @@ impl Image {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Compress the image by converting it to JPEG with the specified quality.
   ///
   /// The quality is a value between 1 and 100.
@@ -101,7 +101,7 @@ impl Image {
     self.inner.compress(quality).map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Resizes this image if it is larger than the desired size. The image's
   /// aspect ratio is preserved. The image is scaled to the maximum
   /// possible size that fits within the bounds specified by nwidth and
@@ -118,20 +118,20 @@ impl Image {
       .map_err(Error::from_reason)
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Returns the image dimensions as `[width, height]` in pixels.
   pub fn dimensions(&self) -> (u32, u32) {
     self.inner.dimensions()
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Returns the image encoded as raw base64, without a MIME prefix.
   pub fn base64(&self) -> napi::Result<String> {
     self.inner.base64().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Returns the image encoded as a base64 data URL.
   ///
   /// The result includes the MIME prefix, for example
@@ -141,7 +141,7 @@ impl Image {
     self.inner.base64_data_url().map_err(Error::from_reason)
   }
 
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// Decodes a base64 image string into an image.
   ///
@@ -153,7 +153,7 @@ impl Image {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// Locate `concept` on this image using the given grounding model and
   /// return absolute zero-based pixel coordinates `[x, y]`.

@@ -1,3 +1,6 @@
+# ci-rustflags.toml, beside this file, is CI's path remap. RUSTFLAGS replaces these flags.
+include = [{ path = "ci-rustflags.toml", optional = true }]
+
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "target-feature=+crt-static"]
 

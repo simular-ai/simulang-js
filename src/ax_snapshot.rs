@@ -61,7 +61,7 @@ pub struct AccessibilitySnapshot {
 
 #[napi]
 impl AccessibilitySnapshot {
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// Construct a snapshot of `window`'s accessibility subtree.
   pub fn from_window(window: &Window) -> napi::Result<Self> {
     window
@@ -73,7 +73,7 @@ impl AccessibilitySnapshot {
       .map_err(Error::from_reason)
   }
 
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// Construct a snapshot of the subtree rooted at `node`.
   ///
   /// This is a full pre-order walk with no structural collapse and no
@@ -87,28 +87,28 @@ impl AccessibilitySnapshot {
     }
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   /// Number of captured nodes.
   pub fn len(&self) -> u32 {
     u32::try_from(self.inner.len()).unwrap_or(u32::MAX)
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Number of captured nodes. Alias for [`AccessibilitySnapshot.len`].
   pub fn node_count(&self) -> u32 {
     self.len()
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   /// `true` if the snapshot holds no nodes.
   pub fn is_empty(&self) -> bool {
     self.inner.is_empty()
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Render the snapshot as indented, Playwright-style lines with
   /// `[ref=N]` markers:
   ///
@@ -133,14 +133,14 @@ impl AccessibilitySnapshot {
     self.inner.to_string_with(&PrintOptions::from(&options))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Alias for [`AccessibilitySnapshot.toStringWith`].
   #[must_use]
   pub fn print(&self, options: Option<SnapshotPrintOptions>) -> String {
     self.to_string_with(options)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Live node handle for a ref index.
   ///
   /// An out-of-range index is an error, not an expected miss: refs come
@@ -154,7 +154,7 @@ impl AccessibilitySnapshot {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Live bounding box of the element at `index` — for example for a
   /// coordinate-click fallback when a semantic action fails.
   pub fn bounding_box(&self, index: u32) -> napi::Result<BoundingBox> {
@@ -165,13 +165,13 @@ impl AccessibilitySnapshot {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Alias for [`AccessibilitySnapshot.boundingBox`].
   pub fn get_bounds(&self, index: u32) -> napi::Result<BoundingBox> {
     self.bounding_box(index)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// A screen point where a pointer click actually lands on the element at
   /// `index`, as `[x, y]` in the canonical global-desktop space. Verified
   /// by hit-testing; throws (saying why) when the element has no such
@@ -189,7 +189,7 @@ impl AccessibilitySnapshot {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Click the element at `index`, dispatching to the platform action that
   /// matches its current role:
   ///
@@ -205,7 +205,7 @@ impl AccessibilitySnapshot {
     self.inner.click(index as usize).map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Invoke / press the element at `index`.
   pub fn activate(&self, index: u32) -> napi::Result<()> {
     self
@@ -214,7 +214,7 @@ impl AccessibilitySnapshot {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Set the text value of the element at `index`.
   #[allow(clippy::needless_pass_by_value)]
   pub fn set_value(&self, index: u32, value: String) -> napi::Result<()> {
@@ -224,7 +224,7 @@ impl AccessibilitySnapshot {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Toggle the checkbox / switch at `index`.
   pub fn toggle(&self, index: u32) -> napi::Result<()> {
     self
@@ -233,7 +233,7 @@ impl AccessibilitySnapshot {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Select the tab / radio / list item at `index`.
   pub fn select(&self, index: u32) -> napi::Result<()> {
     self
@@ -242,7 +242,7 @@ impl AccessibilitySnapshot {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Expand or collapse the element at `index`.
   pub fn expand_collapse(&self, index: u32) -> napi::Result<()> {
     self
@@ -251,7 +251,7 @@ impl AccessibilitySnapshot {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Open the context menu of the element at `index` — the semantic
   /// equivalent of a right-click, without synthesizing pointer input, so
   /// it works on background / obscured windows (Windows `ShowContextMenu`,
@@ -272,7 +272,7 @@ impl AccessibilitySnapshot {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Scroll the element at `index` into view.
   pub fn scroll_into_view(&self, index: u32) -> napi::Result<()> {
     self
@@ -281,7 +281,7 @@ impl AccessibilitySnapshot {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Focus the element at `index` (may also bring its window to the
   /// foreground).
   pub fn set_focus(&self, index: u32) -> napi::Result<()> {
@@ -291,7 +291,7 @@ impl AccessibilitySnapshot {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Alias for [`AccessibilitySnapshot.setFocus`].
   pub fn focus_element(&self, index: u32) -> napi::Result<()> {
     self.set_focus(index)

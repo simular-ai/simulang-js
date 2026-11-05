@@ -38,7 +38,7 @@ macro_rules! aria_roles {
 /// `AriaRole` is exposed to JS as a numeric enum, so the usual
 /// TypeScript reverse-mapping trick (`AriaRole[role]`) does not
 /// work; use this function instead.
-#[napi]
+#[napi(catch_unwind)]
 #[must_use]
 pub fn aria_role_to_string(role: AriaRole) -> &'static str {
   simulang_rs::AriaRole::from(role).as_str()

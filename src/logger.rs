@@ -151,7 +151,7 @@ fn install(spec: Option<&str>, sink: Sink) {
   let _ = log::set_logger(&*RELAY);
 }
 
-#[napi]
+#[napi(catch_unwind)]
 #[allow(clippy::needless_pass_by_value)]
 /// Initialize the logger.
 ///

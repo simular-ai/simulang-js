@@ -26,7 +26,7 @@ pub struct ScreenshotCoordinateType {
 
 #[napi]
 impl ScreenshotCoordinateType {
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// Coordinates are in screenshot image pixels (valid range:
   /// `0..=image_width-1`).
   #[must_use]
@@ -36,7 +36,7 @@ impl ScreenshotCoordinateType {
     }
   }
 
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// Coordinates are normalized to a fixed range. Many VLMs (Qwen-VL,
   /// UI-TARS, etc.) output grounding coordinates in `[0, range]` rather
   /// than in pixel space. `range` specifies the inclusive upper bound
@@ -51,7 +51,7 @@ impl ScreenshotCoordinateType {
 
 #[napi]
 impl Screenshot {
-  #[napi]
+  #[napi(catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// Path includes the file name and the extension.
   pub fn save(&self, path: String) -> napi::Result<()> {
@@ -61,7 +61,7 @@ impl Screenshot {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Draws a cross-hair grid on the image.
   ///
   /// Grid squares have the specified `width` and `height`.
@@ -72,7 +72,7 @@ impl Screenshot {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Paints a filled disc on the screenshot. Useful for visualizing point
   /// coordinates returned from grounding, element / layout queries, etc.
   ///
@@ -103,7 +103,7 @@ impl Screenshot {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Draws the outline of the axis-aligned rectangle `bounds` on the
   /// screenshot. Useful for visualizing bounding boxes returned from grounding,
   /// element / window `boundingBox()` queries, ground-truth annotations, etc.
@@ -131,7 +131,7 @@ impl Screenshot {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Compress the image by converting it to JPEG with the specified quality.
   ///
   /// The quality is a value between 1 and 100.
@@ -140,7 +140,7 @@ impl Screenshot {
     self.inner.compress(quality).map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Resizes this image if it is larger than the desired size. The image's
   /// aspect ratio is preserved. The image is scaled to the maximum
   /// possible size that fits within the bounds specified by nwidth and
@@ -157,20 +157,20 @@ impl Screenshot {
       .map_err(Error::from_reason)
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Returns the screenshot dimensions as `[width, height]` in pixels.
   pub fn dimensions(&self) -> (u32, u32) {
     self.inner.dimensions()
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Returns the image encoded as raw base64, without a MIME prefix.
   pub fn base64(&self) -> napi::Result<String> {
     self.inner.base64().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Returns the image encoded as a base64 data URL.
   ///
   /// The result includes the MIME prefix, for example
@@ -180,7 +180,7 @@ impl Screenshot {
     self.inner.base64_data_url().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Converts a point in this screenshot to the machine's coordinate space.
   ///
   /// The result is in the library's canonical coordinate space (OS-native
@@ -210,7 +210,7 @@ impl Screenshot {
       .map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// Locate `concept` on this screenshot using the given grounding model and
   /// return the corresponding **global desktop coordinates** `[x, y]` in

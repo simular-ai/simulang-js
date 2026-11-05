@@ -44,13 +44,13 @@ impl Directory {
     f(inner).map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// The directory's path on its machine, as a string.
   pub fn path(&self) -> napi::Result<String> {
     self.with_inner(|d| Ok(d.path()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Renames the directory in place (same parent directory). `newName`
   /// must be a single filename component.
   #[allow(clippy::needless_pass_by_value)]
@@ -58,7 +58,7 @@ impl Directory {
     self.with_inner_mut(|d| d.rename(&new_name))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Copies the directory recursively to `dest` on the same machine,
   /// returning a handle to the copy. Fails when `dest` already exists.
   ///
@@ -71,7 +71,7 @@ impl Directory {
     self.with_inner(|d| d.copy_to(&dest)).map(Self::new)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Moves the directory to `dest` on the same machine. Fails when
   /// `dest` already exists. Path resolution as in [`Directory.copyTo`].
   #[allow(clippy::needless_pass_by_value)]
@@ -79,7 +79,7 @@ impl Directory {
     self.with_inner_mut(|d| d.move_to(&dest))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Deletes the directory and everything in it, invalidating the handle.
   pub fn delete(&self) -> napi::Result<()> {
     let inner = self.inner.borrow_mut().take().ok_or_else(|| {
@@ -88,7 +88,7 @@ impl Directory {
     inner.delete().map_err(Error::from_reason)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// All files in this directory (non-recursive), hidden files included.
   pub fn list_files(&self) -> napi::Result<Vec<File>> {
     self
@@ -96,7 +96,7 @@ impl Directory {
       .map(|files| files.into_iter().map(File::new).collect())
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// All subdirectories of this directory (non-recursive), hidden ones
   /// included.
   pub fn list_dirs(&self) -> napi::Result<Vec<Directory>> {
@@ -105,13 +105,13 @@ impl Directory {
       .map(|dirs| dirs.into_iter().map(Self::new).collect())
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// The directory name (last component of the path).
   pub fn name(&self) -> napi::Result<String> {
     self.with_inner(|d| Ok(d.name().to_owned()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// The last modification time of the directory itself as milliseconds
   /// since the Unix epoch.
   #[allow(clippy::cast_precision_loss)]
@@ -125,7 +125,7 @@ impl Directory {
     })
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Whether the directory is read-only.
   pub fn is_readonly(&self) -> napi::Result<bool> {
     self.with_inner(SimulangDirectory::is_readonly)

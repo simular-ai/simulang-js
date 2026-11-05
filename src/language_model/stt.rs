@@ -11,7 +11,7 @@ pub struct SttModel {
 
 #[napi]
 impl SttModel {
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// First STT model advertised by the first STT provider in the loaded
   /// config. Throws if no provider in the loaded config advertises an STT
   /// service.
@@ -22,7 +22,7 @@ impl SttModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// Resolve a model alias against the loaded config (e.g.
   /// `"whisper_large_v3_turbo"`, `"whisper_large_v3"`, or any alias declared
   /// by a user provider). Throws if the alias is unknown.
@@ -33,7 +33,7 @@ impl SttModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// Whisper Large V3 Turbo — fast, slightly less accurate. Convenience
   /// shim for the bundled `whisper_large_v3_turbo` alias.
   pub fn whisper_large_v3_turbo() -> napi::Result<Self> {
@@ -42,7 +42,7 @@ impl SttModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// Whisper Large V3 — highest accuracy. Convenience shim for the bundled
   /// `whisper_large_v3` alias.
   pub fn whisper_large_v3() -> napi::Result<Self> {
@@ -51,7 +51,7 @@ impl SttModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   /// Every STT model alias accepted by `byAlias` on this machine, deduplicated
   /// and sorted alphabetically. Use to discover what aliases the loaded config
@@ -60,14 +60,14 @@ impl SttModel {
     simulang_rs::language_model::SttModel::available_aliases()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// The wire-level model identifier sent in the request body.
   pub fn name(&self) -> String {
     self.inner.name().to_string()
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Check that the API key works. Throws if it doesn't.
   ///
   /// Call right after creating the model so a bad key fails fast,
@@ -83,7 +83,7 @@ impl SttModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Transcribe a single audio chunk and return the recognised text.
   pub fn transcribe(&self, audio: &SamplesBuffer) -> napi::Result<String> {
     self

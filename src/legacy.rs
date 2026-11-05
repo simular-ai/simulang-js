@@ -3,7 +3,7 @@ use napi_derive::napi;
 
 use crate::app::{FocusPolicy, Visibility};
 
-#[napi]
+#[napi(catch_unwind)]
 #[allow(clippy::needless_pass_by_value)]
 /// Legacy helper used by Electron to open an app or URL.
 pub fn legacy_open(
@@ -16,7 +16,7 @@ pub fn legacy_open(
     .map_err(Error::from_reason)
 }
 
-#[napi]
+#[napi(catch_unwind)]
 /// Legacy helper used by Electron to capture a screenshot as base64.
 pub fn legacy_take_screenshot(
   needs_compression: bool,

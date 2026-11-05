@@ -51,7 +51,7 @@ pub struct ScoreQuestion {
 
 /// A yes/no question. The answer is a probability, not a boolean —
 /// thresholds belong to the caller.
-#[napi]
+#[napi(catch_unwind)]
 #[must_use]
 pub fn noul(instructions: String) -> NoulQuestion {
   NoulQuestion {
@@ -63,7 +63,10 @@ pub fn noul(instructions: String) -> NoulQuestion {
 /// A Choice with a runtime option set: key = what the model returns
 /// (e.g. an element ref like `"42"`), value = the description it reads.
 /// `null` and `""` both mean no description.
-#[napi(ts_args_type = "instructions: string, options: Record<string, string | null>")]
+#[napi(
+  ts_args_type = "instructions: string, options: Record<string, string | null>",
+  catch_unwind
+)]
 #[must_use]
 #[allow(clippy::implicit_hasher)]
 pub fn choice(instructions: String, options: HashMap<String, Option<String>>) -> ChoiceQuestion {
@@ -77,7 +80,7 @@ pub fn choice(instructions: String, options: HashMap<String, Option<String>>) ->
 /// A Score with runtime levels. Levels are ordered spectrum positions,
 /// each described by its text. The answer's probabilities come back keyed
 /// by these texts.
-#[napi]
+#[napi(catch_unwind)]
 #[must_use]
 pub fn score(instructions: String, levels: Vec<String>) -> ScoreQuestion {
   ScoreQuestion {
@@ -123,28 +126,28 @@ pub struct ScoreAnswer {
 #[napi]
 impl ScoreAnswer {
   /// Continuous position on the level spectrum (`0.0` = first level).
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn score(&self) -> f64 {
     self.score
   }
 
   /// Probability per level, keyed by the level texts the caller supplied.
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn probabilities(&self) -> BTreeMap<String, f64> {
     self.probabilities.clone()
   }
 
   /// 0–1 summary of how peaked [`ScoreAnswer.probabilities`] is.
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn confidence(&self) -> f64 {
     self.confidence
   }
 
   /// The level closest to [`ScoreAnswer.score`].
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   pub fn nearest(&self) -> String {
     self.nearest_level.clone()
@@ -152,7 +155,7 @@ impl ScoreAnswer {
 
   /// The levels flanking [`ScoreAnswer.score`] (equal when the score sits on a
   /// level exactly).
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   pub fn bounds(&self) -> (String, String) {
     (self.lower.clone(), self.upper.clone())
@@ -224,7 +227,7 @@ impl DecisionModel {
   /// First decisions model advertised by the first capable provider in the
   /// loaded configuration whose credentials are currently available.
   /// Throws if no provider remains available.
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   #[allow(clippy::should_implement_trait)]
   pub fn default() -> napi::Result<Self> {
     simulang_rs::language_model::DecisionModel::default()
@@ -234,7 +237,7 @@ impl DecisionModel {
 
   /// Resolve a model alias against the loaded configuration.
   /// Throws if the alias is unknown.
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   pub fn by_alias(alias: String) -> napi::Result<Self> {
     simulang_rs::language_model::DecisionModel::by_alias(&alias)
@@ -244,7 +247,7 @@ impl DecisionModel {
 
   /// Convenience shim for the bundled `OpenRouter` Jev alias (BYO
   /// `OPENROUTER_API_KEY`).
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   pub fn openrouter_jev() -> napi::Result<Self> {
     simulang_rs::language_model::DecisionModel::openrouter_jev()
       .map(|inner| Self { inner })
@@ -253,14 +256,14 @@ impl DecisionModel {
 
   /// Every decisions model alias advertised by the loaded configuration,
   /// deduplicated and sorted alphabetically.
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   pub fn available_aliases() -> Vec<String> {
     simulang_rs::language_model::DecisionModel::available_aliases()
   }
 
   /// The model identifier from provider configuration.
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   pub fn name(&self) -> String {
     self.inner.name().to_string()
@@ -268,7 +271,7 @@ impl DecisionModel {
 
   /// Check that provider credentials work. Throws (and logs a warning) if
   /// they do not.
-  #[napi]
+  #[napi(catch_unwind)]
   pub fn check_auth(&self) -> napi::Result<()> {
     self
       .inner
@@ -278,7 +281,7 @@ impl DecisionModel {
 
   /// Cap on options per Choice question: the provider's
   /// `max_choice_options`, or 255.
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   pub fn max_choice_options(&self) -> u32 {
     u32::try_from(self.inner.max_choice_options()).unwrap_or(u32::MAX)
@@ -286,7 +289,7 @@ impl DecisionModel {
 
   /// Cap on levels per Score question: the provider's `max_score_levels`,
   /// or 10.
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   pub fn max_score_levels(&self) -> u32 {
     u32::try_from(self.inner.max_score_levels()).unwrap_or(u32::MAX)
@@ -300,6 +303,7 @@ impl DecisionModel {
   /// A string state is text. An object or array is structured data.
   /// A Choice with one option is answered locally, at probability 1.
   #[napi(
+    catch_unwind,
     ts_generic_types = "Q extends Record<string, NoulQuestion | ChoiceQuestion | ScoreQuestion>",
     ts_args_type = "state: string | Record<string, any> | any[], questions: Q",
     ts_return_type = "{ [K in keyof Q]: Q[K] extends NoulQuestion ? NoulAnswer : Q[K] extends ChoiceQuestion ? ChoiceAnswer : Q[K] extends ScoreQuestion ? ScoreAnswer : never } & { usage: TokenUsage | null }"

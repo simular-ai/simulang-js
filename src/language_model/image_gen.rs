@@ -77,7 +77,7 @@ pub struct ImageGenModel {
 
 #[napi]
 impl ImageGenModel {
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// First image-gen model advertised by the first capable provider in the
   /// loaded configuration whose credentials are currently available.
   /// Providers that advertise the service but lack working credentials are
@@ -89,7 +89,7 @@ impl ImageGenModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// Resolve a model alias against the loaded configuration.
   ///
   /// The alias is looked up across every loaded provider in alphabetical
@@ -102,7 +102,7 @@ impl ImageGenModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// Convenience shim for the bundled Simular image-gen alias.
   pub fn simular_image_gen() -> napi::Result<Self> {
     simulang_rs::language_model::ImageGenModel::simular_image_gen()
@@ -110,7 +110,7 @@ impl ImageGenModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   /// Every image-gen model alias advertised by the loaded configuration,
   /// deduplicated and sorted alphabetically. Use to discover what `byAlias`
@@ -119,7 +119,7 @@ impl ImageGenModel {
     simulang_rs::language_model::ImageGenModel::available_aliases()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// The model identifier from provider configuration. Nominal — the
   /// endpoint selects the concrete model from the [`ImageQuality`] argument.
@@ -127,7 +127,7 @@ impl ImageGenModel {
     self.inner.name().to_string()
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Check that provider credentials work. Throws (and logs a warning) if they
   /// do not.
   ///
@@ -143,7 +143,7 @@ impl ImageGenModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Generate an image from `prompt`.
   ///
   /// - `prompt`: a description of the image to generate.
@@ -168,8 +168,7 @@ impl ImageGenModel {
     let aspect_ratio = aspect_ratio.unwrap_or(ImageAspectRatio::Square).into();
     let references_inner: Vec<&simulang_rs::Image> = images
       .as_ref()
-      .map(|v| v.iter().map(|img| &img.inner).collect())
-      .unwrap_or_default();
+      .map_or_default(|v| v.iter().map(|img| &img.inner).collect());
     let (image, description) = self
       .inner
       .generate(&prompt, quality, aspect_ratio, &references_inner)

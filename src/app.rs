@@ -54,7 +54,7 @@ impl From<Visibility> for SimulangVisibility {
 
 #[napi]
 impl App {
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Returns the canonical app name used for fuzzy matching (Android: the
   /// package name).
@@ -62,7 +62,7 @@ impl App {
     self.inner.canonical_name().map(ToOwned::to_owned)
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// Returns the launch target used to open the app: a name or path
   /// locally, the package name on Android.
@@ -70,7 +70,18 @@ impl App {
     self.inner.launch_target().map(ToOwned::to_owned)
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
+  /// The running copy of the app, without launching or changing it: `null`
+  /// when the app isn't running.
+  pub fn running_instance(&self) -> napi::Result<Option<Instance>> {
+    self
+      .inner
+      .running_instance()
+      .map(|instance| instance.map(|inner| Instance { inner }))
+      .map_err(Error::from_reason)
+  }
+
+  #[napi(catch_unwind)]
   /// Opens or switches to the application. If a URL is provided, the URL
   /// is opened with this app.
   ///

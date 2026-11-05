@@ -13,7 +13,7 @@ pub struct GroundingModel {
 
 #[napi]
 impl GroundingModel {
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// First VLM model advertised by the first VLM provider in the loaded
   /// configuration whose credentials are currently available. Providers with
   /// missing credentials are skipped; throws if no provider remains available.
@@ -24,7 +24,7 @@ impl GroundingModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// Resolve a model alias against the loaded config (e.g. `"ui_venus_30b"`,
   /// `"ui_tars_7b"`, `"openrouter_claude_opus"`, or any alias declared by a
   /// user provider). Throws if the alias is unknown.
@@ -35,7 +35,7 @@ impl GroundingModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// Convenience shim for the bundled `ui_tars_7b` alias. Throws if no
   /// provider advertises that alias.
   pub fn ui_tars_7b() -> napi::Result<Self> {
@@ -44,7 +44,7 @@ impl GroundingModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi(factory)]
+  #[napi(factory, catch_unwind)]
   /// Convenience shim for the bundled `ui_venus_30b` alias. Throws if no
   /// provider advertises that alias.
   pub fn ui_venus_30b() -> napi::Result<Self> {
@@ -53,7 +53,7 @@ impl GroundingModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[must_use]
   /// Every VLM model alias accepted by `byAlias` on this machine, deduplicated
   /// and sorted alphabetically. Use to discover what aliases the loaded config
@@ -62,14 +62,14 @@ impl GroundingModel {
     simulang_rs::language_model::GroundingModel::available_aliases()
   }
 
-  #[napi(getter)]
+  #[napi(getter, catch_unwind)]
   #[must_use]
   /// The wire-level model identifier sent in the request body.
   pub fn name(&self) -> String {
     self.inner.name().to_string()
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   /// Check that the API key works. Throws if it doesn't.
   ///
   /// Call right after creating the model so a bad key fails fast,
@@ -85,7 +85,7 @@ impl GroundingModel {
       .map_err(|e| Error::from_reason(e.to_string()))
   }
 
-  #[napi]
+  #[napi(catch_unwind)]
   #[allow(clippy::needless_pass_by_value)]
   /// Locate `concept` on `target` and return zero-based pixel coordinates
   /// `[x, y]`:
