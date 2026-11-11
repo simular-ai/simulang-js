@@ -88,6 +88,17 @@ export declare class AccessibilityNode {
    */
   get shortcut(): string | null
   /**
+   * Whether a check box, radio button, switch or check menu item is
+   * checked, or a toggle button is pressed: `true`, `false`, or `'mixed'`
+   * for a node that is neither, such as a tri-state check box. `null` for
+   * nodes that cannot be checked, and on platforms that do not report it.
+   *
+   * Printed snapshots show it as Playwright does: `[checked]` or
+   * `[checked=mixed]`, and `[pressed]` or `[pressed=mixed]` on a toggle
+   * button.
+   */
+  get checked(): boolean | 'mixed' | null
+  /**
    * Live bounding box of the element on the global desktop, in the canonical
    * coordinate space (OS-native units; see [`Machine`]).
    * `right` and `bottom` are exclusive (Playwright / DOM convention).
@@ -1206,6 +1217,21 @@ export declare class Image {
    * We commonly use this to resize the image to 1920x1080.
    */
   shrink(nwidth: number, nheight: number): void
+  /**
+   * Resizes this image if its area (`width × height`) is larger than
+   * `maxArea` pixels. The image's aspect ratio is preserved. The image is
+   * scaled to the largest size whose area does not exceed `maxArea`.
+   *
+   * Unlike [`Image.shrink`], the limit is a pixel budget rather than a
+   * box, so portrait and landscape images of the same area come out at the
+   * same size. Each side stays at least one pixel, so an image with an
+   * extreme aspect ratio may lose its exact proportions at a very small
+   * budget. Throws when `maxArea` is `0`.
+   *
+   * This method operates on pixel channel values directly without taking
+   * into account color space data.
+   */
+  shrinkToArea(maxArea: number): void
   /** Returns the image dimensions as `[width, height]` in pixels. */
   get dimensions(): [number, number]
   /** Returns the image encoded as raw base64, without a MIME prefix. */
@@ -1515,6 +1541,21 @@ export declare class Machine {
    * `'macos' | 'windows' | 'linux' | 'android'`.
    */
   get os(): Os
+  /**
+   * The version of the operating system this machine runs. A part the OS
+   * doesn't report is `0`.
+   *
+   * - macOS: the product version, e.g. 15.1.0.
+   * - Windows: `major.minor.build`, e.g. 10.0.26100. Windows 11 reports
+   *   10.0 as well; builds from 22000 on are Windows 11.
+   * - Linux: the kernel version, e.g. 6.8.0 for release
+   *   `6.8.0-45-generic`, not the distribution's version.
+   * - Android: the release, e.g. 14.0.0 for Android 14, not the API level.
+   *
+   * The local version is read once per process. An Android device is asked
+   * over adb on every call.
+   */
+  osVersion(): OsVersion
   /**
    * A human-readable identifier for the machine: the local hostname, or
    * the adb serial (`host:port`) for an Android device.
@@ -2017,6 +2058,21 @@ export declare class Screenshot {
    * We commonly use this to resize the image to 1920x1080.
    */
   shrink(nwidth: number, nheight: number): void
+  /**
+   * Resizes this image if its area (`width × height`) is larger than
+   * `maxArea` pixels. The image's aspect ratio is preserved. The image is
+   * scaled to the largest size whose area does not exceed `maxArea`.
+   *
+   * Unlike [`Screenshot.shrink`], the limit is a pixel budget rather than a
+   * box, so portrait and landscape images of the same area come out at the
+   * same size. Each side stays at least one pixel, so an image with an
+   * extreme aspect ratio may lose its exact proportions at a very small
+   * budget. Throws when `maxArea` is `0`.
+   *
+   * This method operates on pixel channel values directly without taking
+   * into account color space data.
+   */
+  shrinkToArea(maxArea: number): void
   /** Returns the screenshot dimensions as `[width, height]` in pixels. */
   get dimensions(): [number, number]
   /** Returns the image encoded as raw base64, without a MIME prefix. */
@@ -3380,6 +3436,22 @@ export interface NoulQuestion {
 
 /** The operating system a [`Machine`] runs. */
 export type Os = 'macos' | 'windows' | 'linux' | 'android'
+
+/**
+ * An operating system version, as [`Machine.osVersion`] reports it. A part
+ * the OS doesn't report is `0`.
+ */
+export interface OsVersion {
+  /** The first part, e.g. 15 in macOS 15.1.0. */
+  major: number
+  /** The second part, e.g. 1 in macOS 15.1.0. */
+  minor: number
+  /**
+   * The third part, e.g. 0 in macOS 15.1.0, or the build number on
+   * Windows (26100 in 10.0.26100).
+   */
+  patch: number
+}
 
 /** Which question a name holds. */
 export declare enum QuestionKind {

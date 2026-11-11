@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [16.0.0] - 2026-11-11
+
+### Added
+
+- `machine.osVersion()` is the version of the OS the machine runs, as `{ major, minor, patch }`: the product version on macOS (15.1.0), `major.minor.build` on Windows (10.0.26100; builds from 22000 on are Windows 11), the kernel version on Linux, and the release on Android (14.0.0, not the API level).
+- `node.checked` tells whether a check box, radio button, switch or check menu item is checked, or a toggle button is pressed: `true`, `false`, `'mixed'`, or `null` for a node that cannot be checked.
+- `image.shrinkToArea(maxArea)` and `screenshot.shrinkToArea(maxArea)` scale an image down to a pixel budget instead of a box, so portrait and landscape images of the same area come out at the same size.
+
+### Changed
+
+- Snapshots show the checked state as Playwright does: `[checked]` or `[checked=mixed]` on check boxes, radio buttons, switches and check menu items, and `[pressed]` or `[pressed=mixed]` on toggle buttons.
+- Model and Appium requests are sent again, up to three times, when the connection could not be made or the answer is 429, 502, 503 or 504. They wait 0.5, 1 and 2 s, or what `Retry-After` asks for up to 30 s. A rate-limited provider used to fail the call on its first 429.
+- On Linux, screenshots go through a MIT-SHM shared-memory segment when the X server is on a Unix socket, and fall back to the old path elsewhere.
+
+### Fixed
+
+- `machine.foregroundApp()` on macOS returns the active app. It used to panic.
+- On macOS, an app that replaced its own process under the same pid can be read again. Every accessibility request to it used to fail with "cannot complete".
+- On macOS, accessibility reads no longer retry an element that answers with a generic failure. The file icons of the save panel do on every attempt, and with the retries' sleeps a snapshot of it took 14 s.
+- On macOS, `app.open` with `Visibility.Hidden` keeps an app hidden that shows itself while launching, such as Chrome.
+- On macOS, `window.minimize()` of a full-screen window waits until the window has left full screen. The window used to be restored right after.
+
 ## [15.0.1] - 2026-11-05
 
 ## [15.0.0] - 2026-11-05

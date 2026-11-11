@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 
-import { Machine, canSee } from '../index'
+import { Machine, ScreenshotCoordinateType, canSee } from '../index'
 
 test('screenshot_cropped_rejects_zero_width', () => {
   expect(() => Machine.local().screenshotCropped(0, 0, 0, 100, true)).toThrow(/greater than 0/)
@@ -43,4 +43,17 @@ test.skipIf(canSee() !== null)('screenshot_of_the_whole_desktop_spans_every_disp
   // to global coordinates like any capture.
   expect(screenshot.dimensions).toEqual([desktop.right - desktop.left, desktop.bottom - desktop.top])
   expect(screenshot.base64().length).toBeGreaterThan(0)
+})
+
+test.skipIf(canSee() !== null)('screenshot_shrunk_to_an_area_still_maps_to_the_desktop', () => {
+  const screenshot = Machine.local().screenshotCropped(10, 10, 200, 100, true)
+  const [width, height] = screenshot.dimensions
+  screenshot.shrinkToArea(Math.floor((width * height) / 4))
+  const [nwidth, nheight] = screenshot.dimensions
+  expect(nwidth * nheight).toBeLessThanOrEqual((width * height) / 4)
+  const absolute = ScreenshotCoordinateType.absolute()
+  expect(screenshot.toMachineCoordinates(0, 0, absolute)).toEqual([10, 10])
+  const [right, bottom] = screenshot.toMachineCoordinates(nwidth - 1, nheight - 1, absolute)
+  expect(right).toBeCloseTo(210, -1)
+  expect(bottom).toBeCloseTo(110, -1)
 })

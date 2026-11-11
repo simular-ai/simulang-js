@@ -118,6 +118,26 @@ impl Image {
       .map_err(Error::from_reason)
   }
 
+  #[napi(catch_unwind)]
+  /// Resizes this image if its area (`width × height`) is larger than
+  /// `maxArea` pixels. The image's aspect ratio is preserved. The image is
+  /// scaled to the largest size whose area does not exceed `maxArea`.
+  ///
+  /// Unlike [`Image.shrink`], the limit is a pixel budget rather than a
+  /// box, so portrait and landscape images of the same area come out at the
+  /// same size. Each side stays at least one pixel, so an image with an
+  /// extreme aspect ratio may lose its exact proportions at a very small
+  /// budget. Throws when `maxArea` is `0`.
+  ///
+  /// This method operates on pixel channel values directly without taking
+  /// into account color space data.
+  pub fn shrink_to_area(&mut self, max_area: u32) -> napi::Result<()> {
+    self
+      .inner
+      .shrink_to_area(max_area)
+      .map_err(Error::from_reason)
+  }
+
   #[napi(getter, catch_unwind)]
   #[must_use]
   /// Returns the image dimensions as `[width, height]` in pixels.

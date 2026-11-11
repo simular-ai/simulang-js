@@ -10,6 +10,7 @@ test('accessibility node binding exposes handle-walk APIs', () => {
   expect(Object.getOwnPropertyDescriptor(AccessibilityNode.prototype, 'isVisible')?.get).toBeTypeOf('function')
   expect(Object.getOwnPropertyDescriptor(AccessibilityNode.prototype, 'shortcut')?.get).toBeTypeOf('function')
   expect(Object.getOwnPropertyDescriptor(AccessibilityNodeJs.prototype, 'shortcut')?.get).toBeTypeOf('function')
+  expect(Object.getOwnPropertyDescriptor(AccessibilityNode.prototype, 'checked')?.get).toBeTypeOf('function')
 })
 
 test('window binding exposes accessibility subtree root', () => {

@@ -1,6 +1,6 @@
 {
   "name": "@simular-ai/simulang-js",
-  "version": "15.0.1",
+  "version": "16.0.0",
   "description": "Node.js bindings for simulang-rs",
   "main": "wrapped.js",
   "types": "./wrapped.d.ts",

@@ -131,3 +131,25 @@ test('save_writes_nonempty_file', () => {
   const stat = statSync(filePath)
   expect(stat.size).toBeGreaterThan(0)
 })
+
+test('shrink_to_area_keeps_the_area_within_the_budget', () => {
+  const img = Image.fromBase64(SCREENSHOT_CROPPED_BASE64)
+  const [width, height] = img.dimensions
+  const budget = Math.floor((width * height) / 4)
+  img.shrinkToArea(budget)
+  const [nwidth, nheight] = img.dimensions
+  expect(nwidth * nheight).toBeLessThanOrEqual(budget)
+  expect(nwidth / nheight).toBeCloseTo(width / height, 1)
+})
+
+test('shrink_to_area_leaves_a_smaller_image_alone', () => {
+  const img = Image.fromBase64(SCREENSHOT_CROPPED_BASE64)
+  const before = img.dimensions
+  img.shrinkToArea(before[0] * before[1])
+  expect(img.dimensions).toEqual(before)
+})
+
+test('shrink_to_area_rejects_zero', () => {
+  const img = Image.fromBase64(SCREENSHOT_CROPPED_BASE64)
+  expect(() => img.shrinkToArea(0)).toThrow(/greater than 0/)
+})

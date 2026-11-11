@@ -1,3 +1,5 @@
+import { release } from 'node:os'
+
 import { describe, expect, test } from 'vitest'
 
 import { AndroidExtras, Image, Machine } from '../index'
@@ -9,6 +11,18 @@ test('local_returns_a_machine', () => {
   expect(m).toBeTruthy()
   expect(['macos', 'windows', 'linux']).toContain(m.os)
   expect(m.id.length).toBeGreaterThan(0)
+})
+
+test('os_version_reports_the_running_os', () => {
+  const m = Machine.local()
+  const version = m.osVersion()
+  expect(version.major).toBeGreaterThan(0)
+  expect(Number.isInteger(version.minor)).toBe(true)
+  expect(Number.isInteger(version.patch)).toBe(true)
+  // Linux reports the kernel version, which Node reads too.
+  if (m.os === 'linux') {
+    expect(release()).toMatch(new RegExp(`^${version.major}\\.${version.minor}\\.${version.patch}\\b`))
+  }
 })
 
 // ── apps ──

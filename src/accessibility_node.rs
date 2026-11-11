@@ -1,12 +1,12 @@
 use std::cell::RefCell;
 
 use napi::Error;
-use napi::bindgen_prelude::{FnArgs, Function};
+use napi::bindgen_prelude::{Either, FnArgs, Function};
 use napi_derive::napi;
-use simulang_rs::Node;
 use simulang_rs::traits::{
   AXNodeActions, AXNodeSynthetic, AXNodeTrait, Ancestry, BoundingBoxTrait,
 };
+use simulang_rs::{Checked, Node};
 
 use crate::aria_role::AriaRole;
 use crate::ax_tree::{BoundingBox, TraversalOrder};
@@ -212,6 +212,24 @@ impl AccessibilityNode {
       .inner
       .shortcut()
       .filter(|shortcut| !shortcut.is_empty())
+  }
+
+  #[napi(getter, catch_unwind, ts_return_type = "boolean | 'mixed' | null")]
+  #[must_use]
+  /// Whether a check box, radio button, switch or check menu item is
+  /// checked, or a toggle button is pressed: `true`, `false`, or `'mixed'`
+  /// for a node that is neither, such as a tri-state check box. `null` for
+  /// nodes that cannot be checked, and on platforms that do not report it.
+  ///
+  /// Printed snapshots show it as Playwright does: `[checked]` or
+  /// `[checked=mixed]`, and `[pressed]` or `[pressed=mixed]` on a toggle
+  /// button.
+  pub fn checked(&self) -> Option<Either<bool, &'static str>> {
+    self.inner.checked().map(|checked| match checked {
+      Checked::False => Either::A(false),
+      Checked::True => Either::A(true),
+      Checked::Mixed => Either::B("mixed"),
+    })
   }
 
   #[napi(catch_unwind)]

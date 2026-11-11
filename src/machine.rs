@@ -37,6 +37,29 @@ impl From<simulang_rs::Os> for Os {
   }
 }
 
+#[napi(object)]
+/// An operating system version, as [`Machine.osVersion`] reports it. A part
+/// the OS doesn't report is `0`.
+pub struct OsVersion {
+  /// The first part, e.g. 15 in macOS 15.1.0.
+  pub major: u32,
+  /// The second part, e.g. 1 in macOS 15.1.0.
+  pub minor: u32,
+  /// The third part, e.g. 0 in macOS 15.1.0, or the build number on
+  /// Windows (26100 in 10.0.26100).
+  pub patch: u32,
+}
+
+impl From<simulang_rs::OsVersion> for OsVersion {
+  fn from(version: simulang_rs::OsVersion) -> Self {
+    Self {
+      major: version.major(),
+      minor: version.minor(),
+      patch: version.patch(),
+    }
+  }
+}
+
 #[napi]
 /// A handle to one machine: the local desktop or an Android device over adb.
 ///
@@ -122,6 +145,27 @@ impl Machine {
   /// `'macos' | 'windows' | 'linux' | 'android'`.
   pub fn os(&self) -> Os {
     self.inner.os().into()
+  }
+
+  #[napi(catch_unwind)]
+  /// The version of the operating system this machine runs. A part the OS
+  /// doesn't report is `0`.
+  ///
+  /// - macOS: the product version, e.g. 15.1.0.
+  /// - Windows: `major.minor.build`, e.g. 10.0.26100. Windows 11 reports
+  ///   10.0 as well; builds from 22000 on are Windows 11.
+  /// - Linux: the kernel version, e.g. 6.8.0 for release
+  ///   `6.8.0-45-generic`, not the distribution's version.
+  /// - Android: the release, e.g. 14.0.0 for Android 14, not the API level.
+  ///
+  /// The local version is read once per process. An Android device is asked
+  /// over adb on every call.
+  pub fn os_version(&self) -> napi::Result<OsVersion> {
+    self
+      .inner
+      .os_version()
+      .map(OsVersion::from)
+      .map_err(Error::from_reason)
   }
 
   #[napi(getter, catch_unwind)]
