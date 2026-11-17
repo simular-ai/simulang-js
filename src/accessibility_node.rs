@@ -15,8 +15,9 @@ use crate::ax_tree::{BoundingBox, TraversalOrder};
 /// `simulang_rs::Node` (macOS `AXUIElement` / Windows UIA element /
 /// Linux AT-SPI accessible / Android uiautomator snapshot node).
 ///
-/// Obtain via [`Machine.focusedRoot`], [`Machine.systemRoot`],
-/// [`Machine.nodeAtPoint`], [`Instance.root`], [`Window.node`],
+/// Obtain via [`Machine.focusedRoot`], [`Machine.focusedNode`],
+/// [`Machine.systemRoot`], [`Machine.nodeAtPoint`], [`Instance.root`],
+/// [`Window.node`],
 /// or via tree-walking methods on another node / `Instance` / `Window`
 /// (`children`, `find`, `scoredSearch`). Desktop nodes are live handles
 /// whose properties re-resolve from the platform accessibility framework
@@ -325,7 +326,9 @@ impl AccessibilityNode {
 
   #[napi(catch_unwind)]
   /// Parent chain for this node, nearest parent first, excluding this node.
-  /// Stops when a node has no parent; parent lookup failures throw.
+  /// Stops when a node has no parent; parent lookup failures throw, and so
+  /// does a chain more than 1024 levels deep, which means the app reports a
+  /// cycle.
   pub fn ancestors(&self) -> napi::Result<Vec<AccessibilityNode>> {
     self
       .inner
@@ -333,6 +336,15 @@ impl AccessibilityNode {
       .collect::<Result<Vec<_>, _>>()
       .map(Self::from_nodes)
       .map_err(Error::from_reason)
+  }
+
+  #[napi(catch_unwind)]
+  #[must_use]
+  /// `true` if `other` is a handle to the same node of the tree, however
+  /// each was reached. `===` is still object identity: two reads of one
+  /// node give two objects.
+  pub fn equals(&self, other: &AccessibilityNode) -> bool {
+    self.inner == other.inner
   }
 
   #[napi(catch_unwind)]

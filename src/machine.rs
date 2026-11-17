@@ -245,7 +245,7 @@ impl Machine {
   ///
   /// Returns `null` when nothing is focused (desktop: no focused window;
   /// Android: no visible task, e.g. the screen is off) rather than
-  /// treating that as an error.
+  /// treating that as an error. Throws when the lookup fails.
   pub fn focused_window(&self) -> napi::Result<Option<Window>> {
     self
       .inner
@@ -270,7 +270,8 @@ impl Machine {
 
   #[napi(catch_unwind)]
   /// The top-level window at global desktop coordinates `(x, y)`, or
-  /// `null` when no window sits under the point.
+  /// `null` when no window sits under the point. Throws when the point is
+  /// outside every screen.
   ///
   /// `(x, y)` are in the canonical coordinate space (see [`Machine`]) — the
   /// same space `Window.boundingBox` and `mouseLocation` use, so a cursor
@@ -281,7 +282,10 @@ impl Machine {
   ///   the cursor — the window itself, not the whole application.
   /// - **Windows**: returns the top-level window (`GA_ROOT`) of whatever
   ///   control sits under the cursor.
-  /// - **Linux**: always `null` (no per-point window hit-test).
+  /// - **Linux**: the topmost window in the window manager's stacking order
+  ///   whose rectangle contains the point, skipping minimized windows and
+  ///   windows on other virtual desktops. `null` over the desktop and over
+  ///   what the window manager does not manage (a panel, a menu, a popup).
   /// - **Android**: throws — tasks have no per-point hit-test.
   pub fn window_at_point(&self, x: i32, y: i32) -> napi::Result<Option<Window>> {
     self
@@ -296,15 +300,41 @@ impl Machine {
   // ---------------------------------------------------------------
 
   #[napi(catch_unwind)]
-  /// Root accessibility node of the machine's focused application.
+  /// Root accessibility node of the machine's focused application, or
+  /// `null` when no application has focus. Throws when the lookup fails.
   ///
   /// Android has no per-application tree; this is a snapshot of everything
   /// currently shown on screen, the same as [`Machine.systemRoot`].
-  pub fn focused_root(&self) -> napi::Result<AccessibilityNode> {
+  pub fn focused_root(&self) -> napi::Result<Option<AccessibilityNode>> {
     self
       .inner
       .focused_root()
-      .map(AccessibilityNode::new)
+      .map(|root| root.map(AccessibilityNode::new))
+      .map_err(Error::from_reason)
+  }
+
+  #[napi(catch_unwind)]
+  /// The accessibility node that has keyboard focus, the one typed text
+  /// goes to, or `null` when nothing has focus. Throws when the lookup
+  /// fails.
+  ///
+  /// Read fresh on every call. Which node an app reports while no control
+  /// has focus is up to the app: often its window or its document.
+  ///
+  /// - **macOS**: `AXFocusedUIElement` of the frontmost app.
+  /// - **Windows**: UI Automation's focused element; `null` when it is the
+  ///   desktop.
+  /// - **Linux**: the focused accessible in the app of the active window.
+  ///   Throws when that app does not expose the window, e.g. it has no
+  ///   accessibility support. In a GTK 3 list or tree, which creates its
+  ///   rows on demand, this is the list or tree, not the row.
+  /// - **Android**: the view with input focus in a fresh snapshot of the
+  ///   screen.
+  pub fn focused_node(&self) -> napi::Result<Option<AccessibilityNode>> {
+    self
+      .inner
+      .focused_node()
+      .map(|node| node.map(AccessibilityNode::new))
       .map_err(Error::from_reason)
   }
 
@@ -325,8 +355,9 @@ impl Machine {
   #[napi(catch_unwind)]
   /// The accessibility element at global desktop coordinates `(x, y)` via
   /// the platform hit-test, or `null` when the point has no accessible
-  /// element (empty desktop, gaps between controls). Throws on Android (no
-  /// accessibility hit-test channel) and on genuine backend failures.
+  /// element (empty desktop, gaps between controls). Throws when the point
+  /// is outside every screen, on Android (no accessibility hit-test
+  /// channel) and on genuine backend failures.
   ///
   /// `(x, y)` are in the canonical coordinate space (see [`Machine`]) — the
   /// same space `.boundingBox()` and `mouseLocation` use.
@@ -342,7 +373,8 @@ impl Machine {
 
   #[napi(catch_unwind)]
   /// Playwright-style aria snapshot of the machine's focused application
-  /// (Android: everything currently shown on screen).
+  /// (Android: everything currently shown on screen). Throws when no
+  /// application has focus.
   pub fn snapshot(&self) -> napi::Result<String> {
     self.inner.snapshot().map_err(Error::from_reason)
   }
@@ -406,6 +438,15 @@ impl Machine {
   /// Several displays share one image, so each is seen at the scale the
   /// arrangement gives it. Too large a desktop throws. Android: the
   /// device's screen (`hideCursor` is ignored).
+  ///
+  /// On macOS, processes started from the same executable outside an app
+  /// bundle (several `node` scripts, say) take turns at the screen, for
+  /// every kind of screenshot: macOS keeps one screen capture connection
+  /// per executable path, so such a process connects only while it
+  /// captures. A capture waits up to 10 seconds for another process's turn
+  /// to end, then throws naming it. A loopback audio stream keeps its
+  /// process's turn for as long as it runs. The processes of an app bundle,
+  /// such as an Electron app, don't take turns.
   pub fn screenshot(&self, hide_cursor: bool) -> napi::Result<Screenshot> {
     self
       .inner

@@ -14,8 +14,9 @@ export declare const __napiBindingTarget: 'native' | 'wasm32-wasi' | 'wasm32-was
  * `simulang_rs::Node` (macOS `AXUIElement` / Windows UIA element /
  * Linux AT-SPI accessible / Android uiautomator snapshot node).
  *
- * Obtain via [`Machine.focusedRoot`], [`Machine.systemRoot`],
- * [`Machine.nodeAtPoint`], [`Instance.root`], [`Window.node`],
+ * Obtain via [`Machine.focusedRoot`], [`Machine.focusedNode`],
+ * [`Machine.systemRoot`], [`Machine.nodeAtPoint`], [`Instance.root`],
+ * [`Window.node`],
  * or via tree-walking methods on another node / `Instance` / `Window`
  * (`children`, `find`, `scoredSearch`). Desktop nodes are live handles
  * whose properties re-resolve from the platform accessibility framework
@@ -158,9 +159,17 @@ export declare class AccessibilityNode {
   parent(): AccessibilityNode | null
   /**
    * Parent chain for this node, nearest parent first, excluding this node.
-   * Stops when a node has no parent; parent lookup failures throw.
+   * Stops when a node has no parent; parent lookup failures throw, and so
+   * does a chain more than 1024 levels deep, which means the app reports a
+   * cycle.
    */
   ancestors(): Array<AccessibilityNode>
+  /**
+   * `true` if `other` is a handle to the same node of the tree, however
+   * each was reached. `===` is still object identity: two reads of one
+   * node give two objects.
+   */
+  equals(other: AccessibilityNode): boolean
   /** Whether this node is the direct parent of `other`. */
   isParentOf(other: AccessibilityNode): boolean
   /** Whether this node is a direct child of `other`. */
@@ -460,6 +469,10 @@ export declare class AccessibilityTree {
    * resolve issues a single `BuildUpdatedCache` IPC; the recursive walk
    * over children and properties then stays entirely in-process, ~40×
    * faster than walking a live root.
+   *
+   * The snapshot stops at 20,000 nodes and does not read below 1024
+   * levels, so a tree that hands out new nodes without end ends too. It
+   * logs an error then, and holds what was read until that point.
    *
    * `visible_only` (default `false`) controls whether nodes whose
    * non-standard `AXVisible` attribute reads `false` are dropped from
@@ -1584,7 +1597,7 @@ export declare class Machine {
    *
    * Returns `null` when nothing is focused (desktop: no focused window;
    * Android: no visible task, e.g. the screen is off) rather than
-   * treating that as an error.
+   * treating that as an error. Throws when the lookup fails.
    */
   focusedWindow(): Window | null
   /**
@@ -1597,7 +1610,8 @@ export declare class Machine {
   windows(): Array<Window>
   /**
    * The top-level window at global desktop coordinates `(x, y)`, or
-   * `null` when no window sits under the point.
+   * `null` when no window sits under the point. Throws when the point is
+   * outside every screen.
    *
    * `(x, y)` are in the canonical coordinate space (see [`Machine`]) — the
    * same space `Window.boundingBox` and `mouseLocation` use, so a cursor
@@ -1608,17 +1622,40 @@ export declare class Machine {
    *   the cursor — the window itself, not the whole application.
    * - **Windows**: returns the top-level window (`GA_ROOT`) of whatever
    *   control sits under the cursor.
-   * - **Linux**: always `null` (no per-point window hit-test).
+   * - **Linux**: the topmost window in the window manager's stacking order
+   *   whose rectangle contains the point, skipping minimized windows and
+   *   windows on other virtual desktops. `null` over the desktop and over
+   *   what the window manager does not manage (a panel, a menu, a popup).
    * - **Android**: throws — tasks have no per-point hit-test.
    */
   windowAtPoint(x: number, y: number): Window | null
   /**
-   * Root accessibility node of the machine's focused application.
+   * Root accessibility node of the machine's focused application, or
+   * `null` when no application has focus. Throws when the lookup fails.
    *
    * Android has no per-application tree; this is a snapshot of everything
    * currently shown on screen, the same as [`Machine.systemRoot`].
    */
-  focusedRoot(): AccessibilityNode
+  focusedRoot(): AccessibilityNode | null
+  /**
+   * The accessibility node that has keyboard focus, the one typed text
+   * goes to, or `null` when nothing has focus. Throws when the lookup
+   * fails.
+   *
+   * Read fresh on every call. Which node an app reports while no control
+   * has focus is up to the app: often its window or its document.
+   *
+   * - **macOS**: `AXFocusedUIElement` of the frontmost app.
+   * - **Windows**: UI Automation's focused element; `null` when it is the
+   *   desktop.
+   * - **Linux**: the focused accessible in the app of the active window.
+   *   Throws when that app does not expose the window, e.g. it has no
+   *   accessibility support. In a GTK 3 list or tree, which creates its
+   *   rows on demand, this is the list or tree, not the row.
+   * - **Android**: the view with input focus in a fresh snapshot of the
+   *   screen.
+   */
+  focusedNode(): AccessibilityNode | null
   /**
    * Root accessibility node spanning everything currently accessible: on
    * desktops the system-wide root (its children are the running
@@ -1630,8 +1667,9 @@ export declare class Machine {
   /**
    * The accessibility element at global desktop coordinates `(x, y)` via
    * the platform hit-test, or `null` when the point has no accessible
-   * element (empty desktop, gaps between controls). Throws on Android (no
-   * accessibility hit-test channel) and on genuine backend failures.
+   * element (empty desktop, gaps between controls). Throws when the point
+   * is outside every screen, on Android (no accessibility hit-test
+   * channel) and on genuine backend failures.
    *
    * `(x, y)` are in the canonical coordinate space (see [`Machine`]) — the
    * same space `.boundingBox()` and `mouseLocation` use.
@@ -1639,7 +1677,8 @@ export declare class Machine {
   nodeAtPoint(x: number, y: number): AccessibilityNode | null
   /**
    * Playwright-style aria snapshot of the machine's focused application
-   * (Android: everything currently shown on screen).
+   * (Android: everything currently shown on screen). Throws when no
+   * application has focus.
    */
   snapshot(): string
   /**
@@ -1679,6 +1718,15 @@ export declare class Machine {
    * Several displays share one image, so each is seen at the scale the
    * arrangement gives it. Too large a desktop throws. Android: the
    * device's screen (`hideCursor` is ignored).
+   *
+   * On macOS, processes started from the same executable outside an app
+   * bundle (several `node` scripts, say) take turns at the screen, for
+   * every kind of screenshot: macOS keeps one screen capture connection
+   * per executable path, so such a process connects only while it
+   * captures. A capture waits up to 10 seconds for another process's turn
+   * to end, then throws naming it. A loopback audio stream keeps its
+   * process's turn for as long as it runs. The processes of an app bundle,
+   * such as an Electron app, don't take turns.
    */
   screenshot(hideCursor: boolean): Screenshot
   /**
@@ -2241,7 +2289,10 @@ export declare class Window {
    * [`window`] to get the window back.
    */
   get id(): number | null
-  /** Root accessibility node for this window. */
+  /**
+   * Root accessibility node for this window. On macOS, throws when the
+   * window is closed, its app has exited, or its app does not answer.
+   */
   node(): AccessibilityNode
   /**
    * Live bounding box of the window on the global desktop, in the canonical
@@ -2689,13 +2740,14 @@ export declare enum Button {
 
 /**
  * Whether this process can drive other apps, so mouse and keyboard input
- * reaches them and actions on their elements work: `null`, or what stands
- * in the way. Needs everything [`canUseAccessibility`] needs too.
+ * reaches them and actions on their elements work: `null`, or the
+ * [`CapabilityError`] that stands in the way. Needs everything
+ * [`canUseAccessibility`] needs too.
  *
  * - macOS: Accessibility is on, as both `AXIsProcessTrusted` and the event
  *   system read it. A process granted Accessibility after it started can
- *   read accessibility trees but still be refused input; the reason then
- *   says to restart it.
+ *   read accessibility trees but still be refused input; the error is
+ *   then a `'restart-needed'`.
  * - Windows: the same as [`canSee`]. Two things that stand in the way of
  *   some runs are logged as warnings on the first call, not returned,
  *   because they depend on what the run meets: an app running as
@@ -2709,13 +2761,13 @@ export declare enum Button {
  *   them, so a run pauses there until the person answers.
  * - Linux: the same as [`canSee`], and the AT-SPI bus can be reached.
  *
- * On every OS, a display is attached.
+ * On every OS, at least one display is attached and awake.
  */
-export declare function canControl(): string | null
+export declare function canControl(): CapabilityError | null
 
 /**
- * Whether screenshots will show what is on screen: `null`, or what stands
- * in the way and, where there is one, the fix.
+ * Whether screenshots will show what is on screen: `null`, or the
+ * [`CapabilityError`] that stands in the way.
  *
  * - macOS: Screen Recording is on for the app running this process.
  * - Windows: the process runs in the user's session (not session 0, where
@@ -2724,23 +2776,74 @@ export declare function canControl(): string | null
  *   locked and no UAC or Ctrl+Alt+Del screen is up).
  * - Linux: the X display can be reached and the session isn't Wayland.
  *
- * On every OS, a display is attached: a headless VM or server has nothing
- * to see.
+ * On every OS, at least one display is attached and awake: a headless VM or
+ * server has nothing to see (`'no-display'`), and neither has a Mac whose
+ * displays all sleep (`'display-asleep'`).
  *
  * Nothing here asks for a permission or opens a prompt. A check that can't
  * tell doesn't stop a run: it logs a warning and counts as fine.
  */
-export declare function canSee(): string | null
+export declare function canSee(): CapabilityError | null
 
 /**
  * Whether other apps' accessibility trees can be read and acted on
- * (pressing, setting values, focusing): `null`, or what stands in the way.
+ * (pressing, setting values, focusing): `null`, or the [`CapabilityError`] that
+ * stands in the way. A sleeping display is none.
  *
  * - macOS: Accessibility is on for the app running this process.
  * - Windows: the process doesn't run in session 0.
  * - Linux: the AT-SPI bus can be reached.
  */
-export declare function canUseAccessibility(): string | null
+export declare function canUseAccessibility(): CapabilityError | null
+
+/**
+ * What stands in the way of a capability.
+ *
+ * Decide on `kind`. `reason` is for a person to read, and its wording
+ * changes between releases.
+ */
+export interface CapabilityError {
+  kind: CapabilityErrorKind
+  /** What stands in the way and, where there is one, the fix. */
+  reason: string
+}
+
+/**
+ * The kinds of [`CapabilityError`]. Each kind has its own way out.
+ *
+ * - `'permission'` (macOS): a permission is off for the app running this
+ *   process, Screen Recording or Accessibility. The person has to turn it
+ *   on.
+ * - `'restart-needed'` (macOS): Accessibility was turned on after this
+ *   process started. The process has to restart.
+ * - `'display-asleep'` (macOS): every attached display is asleep. macOS
+ *   draws nothing then: there is no screen to capture, and windows have no
+ *   place on one. It passes when a display wakes.
+ * - `'no-display'`: no display is attached, as on a headless machine
+ *   without a virtual display.
+ * - `'service-session'` (Windows): this process runs in session 0, where
+ *   services run.
+ * - `'session-disconnected'` (Windows): the session is not connected to a
+ *   screen, such as a Remote Desktop session whose client went away.
+ * - `'other-desktop'` (Windows): input goes to a desktop that is not the
+ *   user's: the session is locked, a UAC or Ctrl+Alt+Del screen is up, or a
+ *   screen saver runs. It passes when the user's desktop is back.
+ * - `'wayland'` (Linux): the session is Wayland, which is not supported.
+ * - `'display-unreachable'` (Linux): the X display can't be reached.
+ * - `'accessibility-bus-unreachable'` (Linux): the AT-SPI bus, which
+ *   carries every app's accessibility tree, can't be reached.
+ */
+export type CapabilityErrorKind =
+  | 'permission'
+  | 'restart-needed'
+  | 'display-asleep'
+  | 'no-display'
+  | 'service-session'
+  | 'session-disconnected'
+  | 'other-desktop'
+  | 'wayland'
+  | 'display-unreachable'
+  | 'accessibility-bus-unreachable'
 
 /**
  * A Choice with a runtime option set: key = what the model returns

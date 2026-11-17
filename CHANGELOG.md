@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [17.0.0] - 2026-11-17
+
+### Added
+
+- `machine.focusedNode()` is the accessibility node that has keyboard focus, the one typed text goes to, or `null` when nothing has focus. On Linux it throws when the app of the active window exposes no accessibility tree.
+- `node.equals(other)` tells whether two `AccessibilityNode` handles stand for the same node of the tree, however each was reached. `===` compares the objects, and every read returns a new one.
+
+### Changed
+
+- **Breaking:** `canSee()`, `canUseAccessibility()` and `canControl()` return `{ kind, reason } | null` instead of `string | null`. `kind` says what stands in the way (`'permission'`, `'restart-needed'`, `'display-asleep'`, `'no-display'`, `'service-session'`, `'session-disconnected'`, `'other-desktop'`, `'wayland'`, `'display-unreachable'`, `'accessibility-bus-unreachable'`), so callers no longer match on the text; `reason` is the sentence the functions returned before. Where a caller read `canSee() === null` as "Screen Recording is on", it now reads `canSee()?.kind !== 'permission'`.
+- **Breaking:** `machine.focusedRoot()` returns `null` when no application has focus, instead of throwing. `machine.snapshot()`, which needs an application, still throws then.
+- **Breaking:** `machine.nodeAtPoint()` and `machine.windowAtPoint()` throw for a point outside every screen. Before, each OS answered in its own way: for a node, Windows gave the desktop element, Linux `null`, and macOS threw an `AXError`.
+- On macOS, `machine.focusedWindow()` throws when the lookup of the frontmost app fails, instead of returning `null` as if no window had focus. `null` is left for "no app is active".
+- On macOS, `window.node()` throws for a window that is closed or whose app has exited or does not answer, instead of returning a node that reads as an empty tree. The error says which of the three it is.
+- The error of an accessibility call starts with what went wrong, in the same words on every OS: `the node is gone`, `the app is gone`, `the app does not answer` or `the node does not support this`. The OS's own error follows, e.g. `the node is gone: AX attribute 'AXTitle': AXError::InvalidUIElement (-25202)`.
+- On macOS, processes started from the same executable outside an app bundle, such as several `node` scripts, take turns at the screen: a screenshot waits up to 10 seconds for another process's capture to end, then throws naming that process. Before, two such processes kept disconnecting each other and no screenshot of either completed. The processes of an app bundle, such as an Electron app, are unaffected.
+- On Windows, snapshots show the automation ids of the title bar and its buttons for windows whose app does not provide its own.
+- On macOS, snapshots keep an unnamed group that carries a description (a tooltip), as on Windows; before, the group was collapsed away together with its text.
+- `find`, `findByDescription`, `scoredSearch`, `AXSnapshot` and the `snapshot()` of a node, a window and the machine read each node once: a node the tree lists again is left out where it repeats. Chromium lists the cells of a table under its rows and again under its columns, so they now show under the rows only. `AccessibilityTree.snapshot()` walks the tree on its own and is unchanged.
+
+### Fixed
+
+- On macOS, `canSee()` and `canControl()` said "No display is attached" while every display slept. They now return a `'display-asleep'` error. Both still say no then: macOS has no screen to capture while the display sleeps, and windows have no frame.
+- On Windows with a display scaled above 100%, coordinates were logical pixels in a host that is not DPI aware, such as plain `node.exe`, while screenshots are physical: bounding boxes and screenshots disagreed, screenshots showed only part of the screen, and the mouse landed in the wrong place. Every call that reads or takes coordinates now runs DPI aware on its own thread, so they are physical pixels in every host. The host process's own DPI awareness is left alone.
+- On Windows, a call into an app that does not answer times out instead of waiting for it.
+- On Windows, the error of a UI Automation call that returned no object says so instead of "The operation completed successfully", and the error of an action on an element that lacks the pattern for it says whether the element was removed.
+- While a Mac's screen is locked, an application stands in for each of its windows and lists itself among its own children. `find`, `scoredSearch` and the `snapshot()` of a node, a window and the machine followed that 1024 levels deep, which took about a minute for a small app; they now read the application once.
+- `node.ancestors()`, `isAncestorOf`, `isDescendantOf` and `lowestCommonAncestor` throw for an app that reports a parent cycle (a chain more than 1024 levels deep) instead of running forever.
+- On macOS, a window frame that does not fit a bounding box throws an error that names the edge and the values, and a frame with a `NaN` edge throws instead of reading as 0.
+- On macOS, a text range whose end overflows throws instead of crashing or wrapping around.
+- `AccessibilityTree.snapshot()` no longer crashes the process on a tree that does not end, such as an application's on a Mac with a locked screen, which contains itself. It followed the loop until the stack overflowed, and the process died with SIGSEGV, which no `try`/`catch` stops. It now leaves out a node below itself, stops at 20,000 nodes and does not read below 1024 levels; when it stops it logs an error and returns what it read until then.
+
 ## [16.0.0] - 2026-11-11
 
 ### Added

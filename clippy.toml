@@ -1,0 +1,3 @@
+# A node hashes its identity in the tree, which does not change, so it is a
+# sound `HashSet` key although its Android variant holds an HTTP client.
+ignore-interior-mutability = ["simulang_rs::Node", ".."]

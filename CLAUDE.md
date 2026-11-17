@@ -35,9 +35,11 @@ restatement elsewhere.
   dropping them can free the underlying resource.
 - **Check `canSee()`, `canUseAccessibility()`, and `canControl()` before a
   run.** Each returns `null` when this process can see the screen, use
-  accessibility trees, or control other apps, and otherwise a reason that
-  names what stands in the way and the fix. None of them opens a permission
-  prompt.
+  accessibility trees, or control other apps, and otherwise an error
+  `{ kind, reason }`. Decide on `kind` (`'permission'`, `'display-asleep'`,
+  `'no-display'`, …); `reason` is a sentence for a person that names what
+  stands in the way and the fix, and its wording changes between releases.
+  None of them opens a permission prompt.
 - `AskModel.askJson` returns one JSON value and checks the reply locally against the schema you pass.
 - Decisions are one `DecisionModel.decide(state, questions)` call. Name each question with `noul`, `choice`, or `score`. The same name is a property of the result: `answers.urgent.probability`, `answers.dept.choice`, `answers.severity.nearest()`.
 - **`searchRelative(candidates, landmarks, relation)`** is a free

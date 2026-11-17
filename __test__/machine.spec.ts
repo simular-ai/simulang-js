@@ -2,7 +2,7 @@ import { release } from 'node:os'
 
 import { describe, expect, test } from 'vitest'
 
-import { AndroidExtras, Image, Machine } from '../index'
+import { AndroidExtras, canUseAccessibility, Image, Machine } from '../index'
 
 import { SCREENSHOT_CROPPED_BASE64 } from './consts'
 
@@ -23,6 +23,34 @@ test('os_version_reports_the_running_os', () => {
   if (m.os === 'linux') {
     expect(release()).toMatch(new RegExp(`^${version.major}\\.${version.minor}\\.${version.patch}\\b`))
   }
+})
+
+// ── accessibility ──
+
+test('hit_tests_throw_for_a_point_outside_every_screen', () => {
+  const m = Machine.local()
+  expect(() => m.nodeAtPoint(1_000_000_000, 1_000_000_000)).toThrow(/outside every screen/)
+  expect(() => m.windowAtPoint(1_000_000_000, 1_000_000_000)).toThrow(/outside every screen/)
+})
+
+// On Linux the focused node is an error when the app of the active window
+// exposes no accessibility tree, which the CI desktop does not promise.
+test.skipIf(process.platform === 'linux' || canUseAccessibility() !== null)('focused_node_is_a_node_or_null', () => {
+  const node = Machine.local().focusedNode()
+  if (node !== null) expect(node.role).toBeDefined()
+})
+
+// The CI desktop does not promise a focused app, or one with a tree.
+test.skipIf(canUseAccessibility() !== null)('node_equals_another_handle_to_the_same_node', () => {
+  const m = Machine.local()
+  const root = m.focusedRoot()
+  const child = root?.children()[0]
+  if (!root || !child) return
+  const again = m.focusedRoot()
+  expect(again).not.toBe(root)
+  expect(again !== null && root.equals(again)).toBe(true)
+  expect(child.parent()?.equals(root)).toBe(true)
+  expect(child.equals(root)).toBe(false)
 })
 
 // ── apps ──

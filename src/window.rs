@@ -53,7 +53,8 @@ impl Window {
   }
 
   #[napi(catch_unwind)]
-  /// Root accessibility node for this window.
+  /// Root accessibility node for this window. On macOS, throws when the
+  /// window is closed, its app has exited, or its app does not answer.
   pub fn node(&self) -> napi::Result<AccessibilityNode> {
     self
       .inner

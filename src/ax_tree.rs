@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use napi::Error;
 use napi_derive::napi;
 use simulang_rs::TreeIter;
@@ -355,9 +357,20 @@ impl BoundingBox {
   }
 }
 
+/// The most nodes one snapshot holds. The largest real windows have some
+/// thousands; this ends the walk of a tree that hands out new nodes without
+/// end.
+const MAX_SNAPSHOT_NODES: usize = 20_000;
+
+/// The depth below which a snapshot does not read, the same as simulang-rs's
+/// own walks. The walk recurses once per level, so a chain of new nodes
+/// would overflow the stack long before it reached [`MAX_SNAPSHOT_NODES`].
+const MAX_SNAPSHOT_DEPTH: usize = 1024;
+
 fn snapshot_node(
   node: &SimulangNode,
   refs: &mut Vec<SimulangNode>,
+  path: &mut HashSet<SimulangNode>,
   visible_only: bool,
 ) -> Option<AccessibilityNodeJs> {
   if visible_only && node.get_attribute_boolean(attr::VISIBLE).ok() == Some(false) {
@@ -365,7 +378,7 @@ fn snapshot_node(
   }
   let ref_id = u32::try_from(refs.len()).ok()?;
   refs.push(node.clone());
-  let children = collect_collapsed_children(node, refs, visible_only);
+  let children = collect_collapsed_children(node, refs, path, visible_only);
   let bounding_box = node.bounding_box().ok().map(BoundingBox::from);
   Some(AccessibilityNodeJs {
     role: node.aria_role().into(),
@@ -395,21 +408,40 @@ fn snapshot_node(
 /// trait docs (and the convention used by simulang-rs's own search
 /// walkers) we treat failure as "no children" so a single torn-down
 /// subtree cannot abort the whole snapshot.
+///
+/// `path` holds the nodes from the root down to `node`. A child that is on
+/// it is left out: the tree contains itself there, and following it would
+/// never end. While a Mac's screen is locked, an application element stands
+/// in for each of its windows and lists itself among its own children.
 fn collect_collapsed_children(
   node: &SimulangNode,
   refs: &mut Vec<SimulangNode>,
+  path: &mut HashSet<SimulangNode>,
   visible_only: bool,
 ) -> Vec<AccessibilityNodeJs> {
   let mut out = Vec::new();
+  if path.len() > MAX_SNAPSHOT_DEPTH {
+    log::error!(
+      "accessibility snapshot stopped at depth {MAX_SNAPSHOT_DEPTH}; deeper nodes were not read"
+    );
+    return out;
+  }
   for child in node.children().unwrap_or_default() {
+    if refs.len() >= MAX_SNAPSHOT_NODES {
+      break;
+    }
     if visible_only && child.get_attribute_boolean(attr::VISIBLE).ok() == Some(false) {
       continue;
     }
+    if !path.insert(child.clone()) {
+      continue;
+    }
     if child.is_collapsible() {
-      out.extend(collect_collapsed_children(&child, refs, visible_only));
-    } else if let Some(materialised) = snapshot_node(&child, refs, visible_only) {
+      out.extend(collect_collapsed_children(&child, refs, path, visible_only));
+    } else if let Some(materialised) = snapshot_node(&child, refs, path, visible_only) {
       out.push(materialised);
     }
+    path.remove(&child);
   }
   out
 }
@@ -595,6 +627,10 @@ impl AccessibilityTree {
   /// over children and properties then stays entirely in-process, ~40×
   /// faster than walking a live root.
   ///
+  /// The snapshot stops at 20,000 nodes and does not read below 1024
+  /// levels, so a tree that hands out new nodes without end ends too. It
+  /// logs an error then, and holds what was read until that point.
+  ///
   /// `visible_only` (default `false`) controls whether nodes whose
   /// non-standard `AXVisible` attribute reads `false` are dropped from
   /// the result.
@@ -609,8 +645,19 @@ impl AccessibilityTree {
   pub fn snapshot(&mut self, visible_only: Option<bool>) -> napi::Result<AccessibilityNodeJs> {
     self.refs.clear();
     let root = self.resolve_root()?;
-    snapshot_node(&root, &mut self.refs, visible_only.unwrap_or(false))
-      .ok_or_else(|| Error::from_reason("Root element is not visible".to_owned()))
+    let mut path = HashSet::from([root.clone()]);
+    let snapshot = snapshot_node(
+      &root,
+      &mut self.refs,
+      &mut path,
+      visible_only.unwrap_or(false),
+    );
+    if self.refs.len() >= MAX_SNAPSHOT_NODES {
+      log::error!(
+        "accessibility snapshot stopped at {MAX_SNAPSHOT_NODES} nodes; the rest of the tree was not read"
+      );
+    }
+    snapshot.ok_or_else(|| Error::from_reason("Root element is not visible".to_owned()))
   }
 
   #[napi(catch_unwind)]
